@@ -33,6 +33,10 @@ export function createToggleRow(panel, label, value, onChange) {
 function createSliderRow(label, min, max, step, value, onChange) {
   const row = document.createElement("div");
   row.className = "control-row";
+  const decimals = String(step).includes(".")
+    ? String(step).split(".")[1].replace(/0+$/, "").length
+    : 0;
+  const formatValue = (next) => Number(next).toFixed(Math.max(0, decimals));
 
   const labelEl = document.createElement("label");
   labelEl.textContent = label;
@@ -45,12 +49,12 @@ function createSliderRow(label, min, max, step, value, onChange) {
   input.value = String(value);
 
   const output = document.createElement("output");
-  output.value = Number(value).toFixed(2);
+  output.value = formatValue(value);
   output.textContent = output.value;
 
   input.addEventListener("input", () => {
     const next = Number(input.value);
-    output.value = next.toFixed(2);
+    output.value = formatValue(next);
     output.textContent = output.value;
     onChange(next);
   });
@@ -257,6 +261,36 @@ export function createFloorControls(panel, config, applyFloorTransform, collapse
       createSliderRow(key, min, max, step, config[key], (next) => {
         config[key] = next;
         applyFloorTransform();
+      })
+    );
+  });
+}
+
+export function createRugControls(panel, config, applyRugTransform, collapsed = true) {
+  const body = createGroup(panel, "Rug", collapsed);
+  const fields = [
+    ["x", -20, 20, 0.01],
+    ["y", -20, 20, 0.0001],
+    ["z", -20, 20, 0.01],
+    ["rotX", -180, 180, 0.5],
+    ["rotY", -180, 180, 0.5],
+    ["rotZ", -180, 180, 0.5],
+    ["width", 1, 30, 0.01],
+    ["height", 1, 30, 0.01],
+    ["depth", 0.01, 0.2, 0.001],
+    ["radius", 0.05, 2, 0.01],
+    ["inset1", 0.05, 5, 0.01],
+    ["inset2", 0.05, 8, 0.01],
+    ["inset3", 0.05, 12, 0.01],
+    ["radiusFalloff", 0, 0.5, 0.005],
+    ["layerLift", 0, 0.02, 0.001]
+  ];
+
+  fields.forEach(([key, min, max, step]) => {
+    body.appendChild(
+      createSliderRow(key, min, max, step, config[key], (next) => {
+        config[key] = next;
+        applyRugTransform();
       })
     );
   });
@@ -563,5 +597,328 @@ export function createMonitorControls(panel, title, config, applyMonitorTransfor
         applyMonitorTransform();
       })
     );
+  });
+
+  const contentFields = config.screenMode === "ui"
+    ? [
+      ["uiSidebarWidth", 0.01, 0.5, 0.001],
+      ["uiSidebarX", -2, 2, 0.001],
+      ["uiPanelWidth", 0.01, 0.5, 0.001],
+      ["uiPanelX", -2, 2, 0.001],
+      ["uiTopIconWidth", 0.05, 1, 0.001],
+      ["uiTopIconX", -2, 2, 0.001],
+      ["uiTopIconY", -2, 2, 0.001],
+      ["uiIconWidth", 0.05, 1, 0.001],
+      ["uiIconX", -2, 2, 0.001],
+      ["uiIconStartY", -2, 2, 0.001],
+      ["uiIconGap", 0.01, 1, 0.001],
+      ["uiDotX", -2, 2, 0.001],
+      ["uiDotY", -2, 2, 0.001],
+      ["uiLinesWidthScale", 0.1, 3, 0.001],
+      ["uiLinesX", -2, 2, 0.001],
+      ["uiLinesY", -2, 2, 0.001],
+      ["uiLineGap", 0.01, 1, 0.001]
+    ]
+    : [
+      ["codeX", -2, 2, 0.001],
+      ["codeY", -2, 2, 0.001]
+    ];
+
+  contentFields.forEach(([key, min, max, step]) => {
+    body.appendChild(
+      createSliderRow(key, min, max, step, config[key], (next) => {
+        config[key] = next;
+        applyMonitorTransform();
+      })
+    );
+  });
+}
+
+export function createFloorPotControls(panel, config, applyFloorPotTransform, collapsed = true) {
+  const body = createGroup(panel, "Floor Pot", collapsed);
+  const fields = [
+    ["x", -10, 10, 0.01],
+    ["y", -10, 10, 0.01],
+    ["z", -10, 10, 0.01],
+    ["rotX", -180, 180, 0.5],
+    ["rotY", -180, 180, 0.5],
+    ["rotZ", -180, 180, 0.5],
+    ["radius", 0.1, 2, 0.01],
+    ["height", 0.1, 3, 0.01],
+    ["neck", 0.05, 1, 0.01],
+    ["bulge", 0.4, 2, 0.01],
+    ["bandRadiusTop", 0.1, 2, 0.01],
+    ["bandRadiusBottom", 0.1, 2, 0.01],
+    ["bandHeight", 0.02, 1, 0.01],
+    ["bandY", -2, 2, 0.01],
+    ["bottomBandRadiusTop", 0.1, 2, 0.01],
+    ["bottomBandRadiusBottom", 0.1, 2, 0.01],
+    ["bottomBandHeight", 0.02, 1, 0.01],
+    ["bottomBandY", -2, 2, 0.01],
+    ["soilRadius", 0.05, 2, 0.01],
+    ["soilHeight", 0.01, 1, 0.01],
+    ["soilY", -2, 2, 0.01]
+  ];
+
+  fields.forEach(([key, min, max, step]) => {
+    body.appendChild(
+      createSliderRow(key, min, max, step, config[key], (next) => {
+        config[key] = next;
+        applyFloorPotTransform();
+      })
+    );
+  });
+}
+
+export function createFloorPlantControls(panel, config, applyFloorPlantTransform, collapsed = true) {
+  const body = createGroup(panel, "Floor Plant", collapsed);
+  const fields = [
+    ["x", -2, 2, 0.01],
+    ["y", -2, 2, 0.01],
+    ["z", -2, 2, 0.01],
+    ["rotX", -180, 180, 0.5],
+    ["rotY", -180, 180, 0.5],
+    ["rotZ", -180, 180, 0.5],
+    ["depth", 0.01, 0.3, 0.01],
+    ["bevelSize", 0.001, 0.2, 0.001],
+    ["bevelThickness", 0.01, 1, 0.01],
+    ["bodyBulge", 0, 1, 0.01],
+    ["ridgeBulge", 0, 1, 0.01],
+    ["ridgeWidth", 0.05, 1, 0.01],
+    ["centerWidth", 0.1, 2, 0.01],
+    ["centerHeight", 0.1, 4, 0.01],
+    ["centerX", -2, 2, 0.01],
+    ["centerY", -2, 2, 0.01],
+    ["centerZ", -2, 2, 0.01],
+    ["centerRotX", -180, 180, 0.5],
+    ["centerRotY", -180, 180, 0.5],
+    ["centerRotZ", -180, 180, 0.5],
+    ["leftWidth", 0.1, 2, 0.01],
+    ["leftHeight", 0.1, 4, 0.01],
+    ["leftX", -2, 2, 0.01],
+    ["leftY", -2, 2, 0.01],
+    ["leftZ", -2, 2, 0.01],
+    ["leftRotX", -180, 180, 0.5],
+    ["leftRotY", -180, 180, 0.5],
+    ["leftRotZ", -180, 180, 0.5],
+    ["rightWidth", 0.1, 2, 0.01],
+    ["rightHeight", 0.1, 4, 0.01],
+    ["rightX", -2, 2, 0.01],
+    ["rightY", -2, 2, 0.01],
+    ["rightZ", -2, 2, 0.01],
+    ["rightRotX", -180, 180, 0.5],
+    ["rightRotY", -180, 180, 0.5],
+    ["rightRotZ", -180, 180, 0.5]
+  ];
+
+  fields.forEach(([key, min, max, step]) => {
+    body.appendChild(
+      createSliderRow(key, min, max, step, config[key], (next) => {
+        config[key] = next;
+        applyFloorPlantTransform();
+      })
+    );
+  });
+}
+
+export function createKeyboardControls(panel, config, applyKeyboardTransform, collapsed = true) {
+  const body = createGroup(panel, "Keyboard", collapsed);
+  const fields = [
+    ["x", -10, 10, 0.01],
+    ["y", -5, 0, 0.001],
+    ["z", -10, 10, 0.01],
+    ["rotX", -180, 180, 0.5],
+    ["rotY", -180, 180, 0.5],
+    ["rotZ", -180, 180, 0.5],
+    ["width", 0.2, 3, 0.01],
+    ["height", 0.1, 1, 0.01],
+    ["depth", 0.01, 0.3, 0.01],
+    ["radius", 0.01, 0.3, 0.01],
+    ["keyDepth", 0.001, 0.05, 0.001],
+    ["keyWidthScale", 0.1, 1.2, 0.01],
+    ["keyHeightScale", 0.1, 1.2, 0.01],
+    ["keyCols", 1, 20, 1],
+    ["keyRows", 1, 10, 1]
+  ];
+
+  fields.forEach(([key, min, max, step]) => {
+    body.appendChild(
+      createSliderRow(key, min, max, step, config[key], (next) => {
+        config[key] = next;
+        applyKeyboardTransform();
+      })
+    );
+  });
+}
+
+export function createMouseControls(panel, config, applyMouseTransform, collapsed = true) {
+  const body = createGroup(panel, "Mouse", collapsed);
+  const fields = [
+    ["x", -10, 10, 0.01],
+    ["y", -5, 0, 0.001],
+    ["z", -10, 10, 0.01],
+    ["rotX", -180, 180, 0.5],
+    ["rotY", -180, 180, 0.5],
+    ["rotZ", -180, 180, 0.5],
+    ["width", 0.05, 1, 0.01],
+    ["height", 0.05, 1, 0.01],
+    ["depth", 0.01, 0.3, 0.01],
+    ["radius", 0.01, 0.3, 0.01],
+    ["splitHeight", 0.1, 2, 0.01]
+  ];
+
+  fields.forEach(([key, min, max, step]) => {
+    body.appendChild(
+      createSliderRow(key, min, max, step, config[key], (next) => {
+        config[key] = next;
+        applyMouseTransform();
+      })
+    );
+  });
+}
+
+export function createSpeakerControls(panel, config, applySpeakerTransform, collapsed = true) {
+  const body = createGroup(panel, "Speaker", collapsed);
+  const fields = [
+    ["x", -10, 10, 0.01],
+    ["y", -5, 0, 0.001],
+    ["z", -10, 10, 0.01],
+    ["rotX", -180, 180, 0.5],
+    ["rotY", -180, 180, 0.5],
+    ["rotZ", -180, 180, 0.5],
+    ["width", 0.1, 2, 0.01],
+    ["height", 0.1, 2, 0.01],
+    ["depth", 0.05, 1, 0.01],
+    ["radius", 0.01, 0.3, 0.01],
+    ["panelWidth", 0.05, 1.5, 0.01],
+    ["panelHeight", 0.05, 1.5, 0.01],
+    ["panelDepth", 0.01, 0.2, 0.01],
+    ["panelRadius", 0.01, 0.2, 0.01],
+    ["panelX", -1, 1, 0.01],
+    ["panelY", -1, 1, 0.01],
+    ["panelZ", -1, 1, 0.01],
+    ["coneRadius", 0.05, 0.8, 0.01],
+    ["coneDepth", 0.01, 0.2, 0.01],
+    ["coneX", -1, 1, 0.01],
+    ["coneY", -1, 1, 0.01],
+    ["coneZ", -1, 1, 0.01],
+    ["smallConeRadius", 0.01, 0.4, 0.01],
+    ["smallConeDepth", 0.005, 0.1, 0.005],
+    ["smallConeX", -1, 1, 0.01],
+    ["smallConeY", -1, 1, 0.01],
+    ["smallConeZ", -1, 1, 0.01]
+  ];
+
+  fields.forEach(([key, min, max, step]) => {
+    body.appendChild(
+      createSliderRow(key, min, max, step, config[key], (next) => {
+        config[key] = next;
+        applySpeakerTransform();
+      })
+    );
+  });
+}
+
+export function createChairControls(panel, config, applyChairTransform, collapsed = true) {
+  const body = createGroup(panel, "Chair", collapsed);
+  const commonFields = [
+    ["x", -10, 10, 0.01],
+    ["y", -10, 10, 0.01],
+    ["z", -10, 10, 0.01],
+    ["rotX", -180, 180, 0.5],
+    ["rotY", -180, 180, 0.5],
+    ["rotZ", -180, 180, 0.5],
+    ["shellX", -2, 2, 0.01],
+    ["shellY", -3, 3, 0.01],
+    ["shellZ", -3, 3, 0.01],
+    ["shellRotX", -180, 180, 0.5],
+    ["shellRotY", -180, 180, 0.5],
+    ["shellRotZ", -180, 180, 0.5],
+    ["frameWidth", 0.2, 4, 0.01],
+    ["frameDepth", 0.2, 4, 0.01],
+    ["frameLift", 0, 3, 0.01],
+    ["backLegSpread", 0.1, 3, 0.01],
+    ["backLegOffset", -1, 2, 0.01],
+    ["backLegHeight", 0.1, 3, 0.01],
+    ["tubeRadius", 0.01, 0.3, 0.01],
+    ["frameX", -2, 2, 0.01],
+    ["frameY", -2, 2, 0.01],
+    ["frameZ", -2, 2, 0.01],
+    ["frameRotX", -180, 180, 0.5],
+    ["frameRotY", -180, 180, 0.5],
+    ["frameRotZ", -180, 180, 0.5]
+  ];
+
+  commonFields.forEach(([key, min, max, step]) => {
+    body.appendChild(
+      createSliderRow(key, min, max, step, config[key], (next) => {
+        config[key] = next;
+        applyChairTransform();
+      })
+    );
+  });
+
+  const sections = [
+    {
+      title: "Shell Back",
+      fields: [
+        ["shellBackWidth", 0.2, 4, 0.01],
+        ["shellBackHeight", 0.2, 4, 0.01],
+        ["shellBackDepth", 0.02, 0.5, 0.01],
+        ["shellBackRadius", 0.01, 0.4, 0.01],
+        ["shellBackX", -2, 2, 0.01],
+        ["shellBackY", -2, 3, 0.01],
+        ["shellBackZ", -2, 2, 0.01],
+        ["shellBackRotX", -180, 180, 0.5],
+        ["shellBackRotY", -180, 180, 0.5],
+        ["shellBackRotZ", -180, 180, 0.5]
+      ]
+    },
+    {
+      title: "Shell Seat",
+      fields: [
+        ["shellSeatWidth", 0.2, 4, 0.01],
+        ["shellSeatHeight", 0.2, 4, 0.01],
+        ["shellSeatDepth", 0.02, 0.5, 0.01],
+        ["shellSeatRadius", 0.01, 0.4, 0.01],
+        ["shellSeatX", -2, 2, 0.01],
+        ["shellSeatY", -2, 3, 0.01],
+        ["shellSeatZ", -2, 3, 0.01],
+        ["shellSeatRotX", -180, 180, 0.5],
+        ["shellSeatRotY", -180, 180, 0.5],
+        ["shellSeatRotZ", -180, 180, 0.5]
+      ]
+    },
+    {
+      title: "Shell Bend",
+      fields: [
+        ["shellBendWidth", 0.2, 4, 0.01],
+        ["shellBendInnerRadius", 0.05, 1.5, 0.01],
+        ["shellBendThickness", 0.02, 0.5, 0.01],
+        ["shellBendX", -2, 2, 0.01],
+        ["shellBendY", -2, 3, 0.01],
+        ["shellBendZ", -2, 3, 0.01],
+        ["shellBendRotX", -180, 180, 0.5],
+        ["shellBendRotY", -180, 180, 0.5],
+        ["shellBendRotZ", -180, 180, 0.5]
+      ]
+    }
+  ];
+
+  sections.forEach(({ title, fields }) => {
+    const heading = document.createElement("h3");
+    heading.textContent = title;
+    heading.style.margin = "10px 0 8px";
+    heading.style.fontSize = "13px";
+    body.appendChild(heading);
+
+    fields.forEach(([key, min, max, step]) => {
+      body.appendChild(
+        createSliderRow(key, min, max, step, config[key], (next) => {
+          config[key] = next;
+          applyChairTransform();
+        })
+      );
+    });
   });
 }

@@ -108,8 +108,8 @@ export class MonitorScene {
       0xb7d74f, 0xaf71e6
     ];
     const widths = [1.58, 1.32, 1.26, 0.68, 0.86, 1.44, 1.28, 2.46, 1.22, 1.1, 0.92, 0.84, 1.36, 0.98];
-    const startX = -this.config.width * 0.34;
-    const startY = this.config.height * 0.26;
+    const startX = -this.config.width * 0.34 + (this.config.codeX ?? 0);
+    const startY = this.config.height * 0.26 + (this.config.codeY ?? 0);
 
     colors.forEach((color, index) => {
       const line = createCodeLine(widths[index], color);
@@ -125,56 +125,57 @@ export class MonitorScene {
 
   buildUiContent() {
     const sidebarMaterial = new THREE.MeshStandardMaterial({ color: 0x2b2f35, roughness: 0.95 });
-    const panelMaterial = new THREE.MeshStandardMaterial({ color: 0x3b4047, roughness: 0.95 });
-    const itemMaterial = new THREE.MeshStandardMaterial({ color: 0x5f646b, roughness: 0.95 });
+    const panelMaterial = new THREE.MeshStandardMaterial({ color: 0x353a41, roughness: 0.95 });
+    const itemMaterial = new THREE.MeshStandardMaterial({ color: 0x3a3f45, roughness: 0.95 });
     const blueMaterial = new THREE.MeshStandardMaterial({ color: 0x6f9ad8, roughness: 0.92 });
     const redMaterial = new THREE.MeshStandardMaterial({ color: 0xd35c63, roughness: 0.92 });
 
     const sidebar = new THREE.Mesh(
-      new THREE.BoxGeometry(this.config.width * 0.18, this.config.height * 0.82, 0.01),
+      new THREE.BoxGeometry(this.config.width * (this.config.uiSidebarWidth ?? 0.06), this.config.height * 0.82, 0.01),
       sidebarMaterial
     );
-    sidebar.position.set(-this.config.width * 0.34, 0, this.config.screenDepth * 0.7);
+    sidebar.position.set(this.config.uiSidebarX ?? -this.config.width * 0.35, 0, this.config.screenDepth * 0.7);
     this.content.add(sidebar);
 
     const panel = new THREE.Mesh(
-      new THREE.BoxGeometry(this.config.width * 0.22, this.config.height * 0.82, 0.01),
+      new THREE.BoxGeometry(this.config.width * (this.config.uiPanelWidth ?? 0.13), this.config.height * 0.82, 0.01),
       panelMaterial
     );
-    panel.position.set(-this.config.width * 0.16, 0, this.config.screenDepth * 0.68);
+    panel.position.set(this.config.uiPanelX ?? -this.config.width * 0.20, 0, this.config.screenDepth * 0.68);
     this.content.add(panel);
 
-    for (let index = 0; index < 4; index += 1) {
-      const icon = new THREE.Mesh(
-        new THREE.BoxGeometry(0.18, 0.18, 0.01),
-        index === 0 ? blueMaterial : itemMaterial
+    const topIconSize = this.config.uiTopIconWidth ?? 0.22;
+    const topIcon = new THREE.Mesh(new THREE.BoxGeometry(topIconSize, topIconSize, 0.01), blueMaterial);
+    topIcon.position.set(this.config.uiTopIconX ?? -this.config.width * 0.43, this.config.uiTopIconY ?? this.config.height * 0.28, this.config.screenDepth * 0.75);
+    this.content.add(topIcon);
+
+    for (let index = 0; index < 3; index += 1) {
+      const iconSize = this.config.uiIconWidth ?? 0.18;
+      const icon = new THREE.Mesh(new THREE.BoxGeometry(iconSize, iconSize, 0.01), itemMaterial);
+      icon.position.set(
+        this.config.uiIconX ?? -this.config.width * 0.43,
+        (this.config.uiIconStartY ?? this.config.height * 0.02) - index * (this.config.uiIconGap ?? 0.30),
+        this.config.screenDepth * 0.74
       );
-      icon.position.set(-this.config.width * 0.43, this.config.height * 0.26 - index * 0.34, this.config.screenDepth * 0.74);
       this.content.add(icon);
     }
 
     const dot = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.01, 18), redMaterial);
     dot.rotation.x = Math.PI / 2;
-    dot.position.set(-this.config.width * 0.35, this.config.height * 0.12, this.config.screenDepth * 0.76);
+    dot.position.set(this.config.uiDotX ?? -this.config.width * 0.36, this.config.uiDotY ?? this.config.height * 0.15, this.config.screenDepth * 0.76);
     this.content.add(dot);
 
-    const lineWidths = [0.56, 0.42, 0.48, 0.34, 0.44, 0.28, 0.38];
+    const widthScale = this.config.uiLinesWidthScale ?? 1;
+    const lineWidths = [0.52, 0.42, 0.48, 0.34, 0.44, 0.28, 0.38].map((value) => value * widthScale);
     lineWidths.forEach((width, index) => {
       const line = createCodeLine(width, 0xc0c4ca);
       line.position.set(
-        -this.config.width * 0.18 + width * 0.5,
-        this.config.height * 0.24 - index * 0.16,
+        (this.config.uiLinesX ?? -this.config.width * 0.07) + width * 0.5,
+        (this.config.uiLinesY ?? this.config.height * 0.31) - index * (this.config.uiLineGap ?? 0.12),
         this.config.screenDepth * 0.76
       );
       this.content.add(line);
     });
-
-    const bottomBar = new THREE.Mesh(
-      new THREE.BoxGeometry(this.config.width * 0.24, 0.08, 0.01),
-      new THREE.MeshStandardMaterial({ color: 0x474d56, roughness: 0.95 })
-    );
-    bottomBar.position.set(-this.config.width * 0.08, -this.config.height * 0.22, this.config.screenDepth * 0.75);
-    this.content.add(bottomBar);
   }
 
   buildContent() {
