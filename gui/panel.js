@@ -84,6 +84,10 @@ function createGroup(panel, title, collapsed = true) {
   return body;
 }
 
+export function createFolder(panel, title, collapsed = true) {
+  return createGroup(panel, title, collapsed);
+}
+
 export function createPaperControls(panel, title, mesh, config, applyPaperTransform, collapsed = true) {
   const body = createGroup(panel, title, collapsed);
   const fields = [
@@ -917,6 +921,200 @@ export function createChairControls(panel, config, applyChairTransform, collapse
         createSliderRow(key, min, max, step, config[key], (next) => {
           config[key] = next;
           applyChairTransform();
+        })
+      );
+    });
+  });
+}
+
+export function createCharacterRotationControls(panel, config, applyCharacterTransform, collapsed = true) {
+  const body = createGroup(panel, "Rotations", collapsed);
+
+  const sections = [
+    {
+      title: "Root",
+      fields: [
+        ["rotX", -180, 180, 0.5],
+        ["rotY", -180, 180, 0.5],
+        ["rotZ", -180, 180, 0.5],
+      ]
+    },
+    {
+      title: "Torso Head",
+      fields: [
+        ["torsoScaleX", 0.4, 2.5, 0.01],
+        ["torsoScaleY", 0.4, 2.5, 0.01],
+        ["torsoScaleZ", 0.4, 2.5, 0.01],
+        ["torsoPitch", -60, 60, 0.5],
+        ["torsoYaw", -90, 90, 0.5],
+        ["torsoRoll", -45, 45, 0.5],
+        ["headPitch", -60, 60, 0.5],
+        ["headYaw", -120, 120, 0.5],
+        ["headRoll", -45, 45, 0.5],
+        ["eyeYaw", -1, 1, 0.01],
+        ["eyePitch", -1, 1, 0.01],
+        ["browTilt", -30, 30, 0.5]
+      ]
+    },
+    {
+      title: "Left Arm",
+      fields: [
+        ["leftShoulderX", -180, 180, 0.5],
+        ["leftShoulderY", -180, 180, 0.5],
+        ["leftShoulderZ", -180, 180, 0.5],
+        ["leftElbowX", -10, 160, 0.5]
+      ]
+    },
+    {
+      title: "Right Arm",
+      fields: [
+        ["rightShoulderX", -180, 180, 0.5],
+        ["rightShoulderY", -180, 180, 0.5],
+        ["rightShoulderZ", -180, 180, 0.5],
+        ["rightElbowX", -10, 160, 0.5]
+      ]
+    },
+    {
+      title: "Left Leg",
+      fields: [
+        ["leftHipX", -180, 180, 0.5],
+        ["leftHipY", -180, 180, 0.5],
+        ["leftHipZ", -180, 180, 0.5],
+        ["leftKneeX", -10, 160, 0.5],
+        ["leftAnkleX", -60, 60, 0.5]
+      ]
+    },
+    {
+      title: "Right Leg",
+      fields: [
+        ["rightHipX", -180, 180, 0.5],
+        ["rightHipY", -180, 180, 0.5],
+        ["rightHipZ", -180, 180, 0.5],
+        ["rightKneeX", -10, 160, 0.5],
+        ["rightAnkleX", -60, 60, 0.5]
+      ]
+    }
+  ];
+
+  sections.forEach(({ title, fields }) => {
+    const heading = document.createElement("h3");
+    heading.textContent = title;
+    heading.style.margin = "10px 0 8px";
+    heading.style.fontSize = "13px";
+    body.appendChild(heading);
+
+    fields.forEach(([key, min, max, step]) => {
+      body.appendChild(
+        createSliderRow(key, min, max, step, config[key], (next) => {
+          config[key] = next;
+          applyCharacterTransform();
+        })
+      );
+    });
+  });
+}
+
+export function createCharacterOffsetControls(panel, config, applyCharacterTransform, collapsed = true) {
+  const body = createGroup(panel, "Offsets", collapsed);
+
+  const rootHeading = document.createElement("h3");
+  rootHeading.textContent = "Root";
+  rootHeading.style.margin = "10px 0 8px";
+  rootHeading.style.fontSize = "13px";
+  body.appendChild(rootHeading);
+
+  [
+    ["x", -10, 10, 0.01],
+    ["y", -10, 10, 0.01],
+    ["z", -10, 10, 0.01],
+    ["sitAmount", 0, 1, 0.01],
+    ["sitOffsetX", -2, 2, 0.01],
+    ["sitOffsetY", -2, 2, 0.01],
+    ["sitOffsetZ", -2, 2, 0.01]
+  ].forEach(([key, min, max, step]) => {
+    body.appendChild(
+      createSliderRow(key, min, max, step, config[key], (next) => {
+        config[key] = next;
+        applyCharacterTransform();
+      })
+    );
+  });
+
+  const sections = [
+    ["Torso", ["torsoOffsetX", "torsoOffsetY", "torsoOffsetZ"]],
+    ["Pelvis", ["pelvisOffsetX", "pelvisOffsetY", "pelvisOffsetZ"]],
+    ["Head", ["headOffsetX", "headOffsetY", "headOffsetZ"]],
+    ["Left Ear", ["leftEarOffsetX", "leftEarOffsetY", "leftEarOffsetZ"]],
+    ["Right Ear", ["rightEarOffsetX", "rightEarOffsetY", "rightEarOffsetZ"]],
+    ["Left Eye", ["leftEyeOffsetX", "leftEyeOffsetY", "leftEyeOffsetZ"]],
+    ["Right Eye", ["rightEyeOffsetX", "rightEyeOffsetY", "rightEyeOffsetZ"]],
+    ["Left Brow", ["leftBrowOffsetX", "leftBrowOffsetY", "leftBrowOffsetZ"]],
+    ["Right Brow", ["rightBrowOffsetX", "rightBrowOffsetY", "rightBrowOffsetZ"]],
+    ["Left Shoulder", ["leftShoulderOffsetX", "leftShoulderOffsetY", "leftShoulderOffsetZ"]],
+    ["Right Shoulder", ["rightShoulderOffsetX", "rightShoulderOffsetY", "rightShoulderOffsetZ"]],
+    ["Left Elbow", ["leftElbowOffsetX", "leftElbowOffsetY", "leftElbowOffsetZ"]],
+    ["Right Elbow", ["rightElbowOffsetX", "rightElbowOffsetY", "rightElbowOffsetZ"]],
+    ["Left Hip", ["leftHipOffsetX", "leftHipOffsetY", "leftHipOffsetZ"]],
+    ["Right Hip", ["rightHipOffsetX", "rightHipOffsetY", "rightHipOffsetZ"]],
+    ["Left Knee", ["leftKneeOffsetX", "leftKneeOffsetY", "leftKneeOffsetZ"]],
+    ["Right Knee", ["rightKneeOffsetX", "rightKneeOffsetY", "rightKneeOffsetZ"]],
+    ["Left Ankle", ["leftAnkleOffsetX", "leftAnkleOffsetY", "leftAnkleOffsetZ"]],
+    ["Right Ankle", ["rightAnkleOffsetX", "rightAnkleOffsetY", "rightAnkleOffsetZ"]]
+  ];
+
+  sections.forEach(([title, keys]) => {
+    const heading = document.createElement("h3");
+    heading.textContent = title;
+    heading.style.margin = "10px 0 8px";
+    heading.style.fontSize = "13px";
+    body.appendChild(heading);
+
+    keys.forEach((key) => {
+      body.appendChild(
+        createSliderRow(key, -2, 2, 0.01, config[key], (next) => {
+          config[key] = next;
+          applyCharacterTransform();
+        })
+      );
+    });
+  });
+}
+
+export function createCharacterSizeControls(panel, config, applyCharacterTransform, collapsed = true) {
+  const body = createGroup(panel, "Sizes", collapsed);
+
+  const sections = [
+    ["Torso", [["torsoScaleX", 0.2, 3, 0.01], ["torsoScaleY", 0.2, 3, 0.01], ["torsoScaleZ", 0.2, 3, 0.01]]],
+    ["Pelvis", [["pelvisScaleX", 0.2, 3, 0.01], ["pelvisScaleY", 0.2, 3, 0.01], ["pelvisScaleZ", 0.2, 3, 0.01]]],
+    ["Head", [["headScaleX", 0.2, 3, 0.01], ["headScaleY", 0.2, 3, 0.01], ["headScaleZ", 0.2, 3, 0.01]]],
+    ["Hair", [["hairScaleX", 0.2, 3, 0.01], ["hairScaleY", 0.2, 3, 0.01], ["hairScaleZ", 0.2, 3, 0.01]]],
+    ["Fringe", [["fringeScaleX", 0.2, 3, 0.01], ["fringeScaleY", 0.2, 3, 0.01], ["fringeScaleZ", 0.2, 3, 0.01]]],
+    ["Side Hair", [["sideHairScaleX", 0.2, 3, 0.01], ["sideHairScaleY", 0.2, 3, 0.01], ["sideHairScaleZ", 0.2, 3, 0.01]]],
+    ["Ears", [["earScaleX", 0.2, 3, 0.01], ["earScaleY", 0.2, 3, 0.01], ["earScaleZ", 0.2, 3, 0.01]]],
+    ["Eyes", [["eyeScaleX", 0.2, 3, 0.01], ["eyeScaleY", 0.2, 3, 0.01], ["eyeScaleZ", 0.2, 3, 0.01], ["pupilScale", 0.2, 3, 0.01]]],
+    ["Brows", [["browScaleX", 0.2, 3, 0.01], ["browScaleY", 0.2, 3, 0.01], ["browScaleZ", 0.2, 3, 0.01]]],
+    ["Upper Arms", [["upperArmScaleX", 0.2, 3, 0.01], ["upperArmScaleY", 0.2, 3, 0.01], ["upperArmScaleZ", 0.2, 3, 0.01]]],
+    ["Lower Arms", [["lowerArmScaleX", 0.2, 3, 0.01], ["lowerArmScaleY", 0.2, 3, 0.01], ["lowerArmScaleZ", 0.2, 3, 0.01]]],
+    ["Hands", [["handScaleX", 0.2, 3, 0.01], ["handScaleY", 0.2, 3, 0.01], ["handScaleZ", 0.2, 3, 0.01]]],
+    ["Upper Legs", [["upperLegScaleX", 0.2, 3, 0.01], ["upperLegScaleY", 0.2, 3, 0.01], ["upperLegScaleZ", 0.2, 3, 0.01]]],
+    ["Lower Legs", [["lowerLegScaleX", 0.2, 3, 0.01], ["lowerLegScaleY", 0.2, 3, 0.01], ["lowerLegScaleZ", 0.2, 3, 0.01]]],
+    ["Socks", [["sockScaleX", 0.2, 3, 0.01], ["sockScaleY", 0.2, 3, 0.01], ["sockScaleZ", 0.2, 3, 0.01]]],
+    ["Shoes", [["shoeScaleX", 0.2, 3, 0.01], ["shoeScaleY", 0.2, 3, 0.01], ["shoeScaleZ", 0.2, 3, 0.01]]],
+    ["Toes", [["toeScaleX", 0.2, 3, 0.01], ["toeScaleY", 0.2, 3, 0.01], ["toeScaleZ", 0.2, 3, 0.01]]]
+  ];
+
+  sections.forEach(([title, fields]) => {
+    const heading = document.createElement("h3");
+    heading.textContent = title;
+    heading.style.margin = "10px 0 8px";
+    heading.style.fontSize = "13px";
+    body.appendChild(heading);
+
+    fields.forEach(([key, min, max, step]) => {
+      body.appendChild(
+        createSliderRow(key, min, max, step, config[key], (next) => {
+          config[key] = next;
+          applyCharacterTransform();
         })
       );
     });

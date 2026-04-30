@@ -2,6 +2,7 @@ import "./style.css";
 import * as THREE from "three";
 import {
   createControlPanel,
+  createFolder,
   createToggleRow,
   createPapersControls,
   createPinsControls,
@@ -22,7 +23,10 @@ import {
   createKeyboardControls,
   createMouseControls,
   createSpeakerControls,
-  createChairControls
+  createChairControls,
+  createCharacterRotationControls,
+  createCharacterOffsetControls,
+  createCharacterSizeControls
 } from "./gui/panel.js";
 import {
   atmosphereConfig,
@@ -48,6 +52,7 @@ import {
   speakerConfig,
   rugConfig,
   chairConfig,
+  characterConfig,
   cloneConfig
 } from "./scene/config/defaults.js";
 import { CameraRig } from "./scene/CameraRig.js";
@@ -63,6 +68,7 @@ import { InputDevicesScene } from "./scene/objects/InputDevicesScene.js";
 import { SpeakerScene } from "./scene/objects/SpeakerScene.js";
 import { RugScene } from "./scene/objects/RugScene.js";
 import { ChairScene } from "./scene/objects/ChairScene.js";
+import { CharacterScene } from "./scene/objects/CharacterScene.js";
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xfbf4e8);
@@ -98,6 +104,7 @@ const mouseState = cloneConfig(mouseConfig);
 const speakerState = cloneConfig(speakerConfig);
 const rugState = cloneConfig(rugConfig);
 const chairState = cloneConfig(chairConfig);
+const characterState = cloneConfig(characterConfig);
 const atmosphereState = cloneConfig(atmosphereConfig);
 
 const cameraRig = new CameraRig(renderer, cameraState);
@@ -114,36 +121,43 @@ const inputDevices = new InputDevicesScene(scene, keyboardState, mouseState);
 const speaker = new SpeakerScene(scene, speakerState);
 const rug = new RugScene(scene, rugState);
 const chair = new ChairScene(scene, chairState);
+const character = new CharacterScene(scene, characterState);
 
 const controlPanel = createControlPanel("Board Controls");
 document.body.appendChild(controlPanel);
 
-createToggleRow(controlPanel, "Fog", atmosphereState.fogEnabled, (next) => {
+const allGuiFolder = createFolder(controlPanel, "Scene", true);
+const manFolder = createFolder(controlPanel, "man", true);
+
+createToggleRow(allGuiFolder, "Fog", atmosphereState.fogEnabled, (next) => {
   atmosphereState.fogEnabled = next;
   scene.fog = next ? new THREE.Fog(0xfbf4e8, 14, 28) : null;
 });
 
-createBoardTransformControls(controlPanel, boardState, () => board.apply(), true);
-createCameraControls(controlPanel, cameraState, () => cameraRig.apply(), true);
-createFloorControls(controlPanel, roomState.floor, () => room.applyFloor(), true);
-createRugControls(controlPanel, rugState, () => rug.apply(), true);
-createLightingControls(controlPanel, lightingState, () => lightingRig.apply(), true);
-createDeskControls(controlPanel, deskState, () => desk.apply(), true);
-createMonitorControls(controlPanel, "Monitor 1", monitorOneState, () => monitorOne.apply(), true);
-createMonitorControls(controlPanel, "Monitor 2", monitorTwoState, () => monitorTwo.apply(), true);
-createFloorPotControls(controlPanel, floorPotState, () => floorPlant.applyPot(), true);
-createFloorPlantControls(controlPanel, floorPlantState, () => floorPlant.applyPlant(), true);
-createKeyboardControls(controlPanel, keyboardState, () => inputDevices.applyKeyboard(), true);
-createMouseControls(controlPanel, mouseState, () => inputDevices.applyMouse(), true);
-createSpeakerControls(controlPanel, speakerState, () => speaker.apply(), true);
-createChairControls(controlPanel, chairState, () => chair.apply(), true);
-createShelfControls(controlPanel, shelfState, () => shelf.applyShelfTransform(), true);
-createPictureControls(controlPanel, pictureState, () => picture.apply(), true);
-createPotControls(controlPanel, potState, () => shelf.applyPotTransform(), true);
-createCactusControls(controlPanel, cactusState, () => shelf.applyCactusTransform(), true);
-createBooksControls(controlPanel, shelf.getBookSections(), true);
-createPapersControls(controlPanel, board.getPaperSections(), true);
-createPinsControls(controlPanel, board.getPinSections(), true);
+createBoardTransformControls(allGuiFolder, boardState, () => board.apply(), true);
+createCameraControls(allGuiFolder, cameraState, () => cameraRig.apply(), true);
+createFloorControls(allGuiFolder, roomState.floor, () => room.applyFloor(), true);
+createRugControls(allGuiFolder, rugState, () => rug.apply(), true);
+createLightingControls(allGuiFolder, lightingState, () => lightingRig.apply(), true);
+createDeskControls(allGuiFolder, deskState, () => desk.apply(), true);
+createMonitorControls(allGuiFolder, "Monitor 1", monitorOneState, () => monitorOne.apply(), true);
+createMonitorControls(allGuiFolder, "Monitor 2", monitorTwoState, () => monitorTwo.apply(), true);
+createFloorPotControls(allGuiFolder, floorPotState, () => floorPlant.applyPot(), true);
+createFloorPlantControls(allGuiFolder, floorPlantState, () => floorPlant.applyPlant(), true);
+createKeyboardControls(allGuiFolder, keyboardState, () => inputDevices.applyKeyboard(), true);
+createMouseControls(allGuiFolder, mouseState, () => inputDevices.applyMouse(), true);
+createSpeakerControls(allGuiFolder, speakerState, () => speaker.apply(), true);
+createChairControls(allGuiFolder, chairState, () => chair.apply(), true);
+createShelfControls(allGuiFolder, shelfState, () => shelf.applyShelfTransform(), true);
+createPictureControls(allGuiFolder, pictureState, () => picture.apply(), true);
+createPotControls(allGuiFolder, potState, () => shelf.applyPotTransform(), true);
+createCactusControls(allGuiFolder, cactusState, () => shelf.applyCactusTransform(), true);
+createBooksControls(allGuiFolder, shelf.getBookSections(), true);
+createPapersControls(allGuiFolder, board.getPaperSections(), true);
+createPinsControls(allGuiFolder, board.getPinSections(), true);
+createCharacterOffsetControls(manFolder, characterState, () => character.apply(), false);
+createCharacterRotationControls(manFolder, characterState, () => character.apply(), true);
+createCharacterSizeControls(manFolder, characterState, () => character.apply(), true);
 
 function animate() {
   cameraRig.controls.update();
