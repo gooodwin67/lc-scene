@@ -942,9 +942,6 @@ export function createCharacterRotationControls(panel, config, applyCharacterTra
     {
       title: "Torso Head",
       fields: [
-        ["torsoScaleX", 0.4, 2.5, 0.01],
-        ["torsoScaleY", 0.4, 2.5, 0.01],
-        ["torsoScaleZ", 0.4, 2.5, 0.01],
         ["torsoPitch", -60, 60, 0.5],
         ["torsoYaw", -90, 90, 0.5],
         ["torsoRoll", -45, 45, 0.5],
@@ -956,24 +953,34 @@ export function createCharacterRotationControls(panel, config, applyCharacterTra
         ["browTilt", -30, 30, 0.5]
       ]
     },
-    {
-      title: "Left Arm",
-      fields: [
-        ["leftShoulderX", -180, 180, 0.5],
-        ["leftShoulderY", -180, 180, 0.5],
-        ["leftShoulderZ", -180, 180, 0.5],
-        ["leftElbowX", -10, 160, 0.5]
-      ]
-    },
-    {
-      title: "Right Arm",
-      fields: [
-        ["rightShoulderX", -180, 180, 0.5],
-        ["rightShoulderY", -180, 180, 0.5],
-        ["rightShoulderZ", -180, 180, 0.5],
-        ["rightElbowX", -10, 160, 0.5]
-      ]
-    },
+      {
+        title: "Left Arm",
+        fields: [
+          ["leftShoulderX", -180, 180, 0.5],
+          ["leftShoulderY", -360, 360, 0.5],
+          ["leftShoulderZ", -180, 180, 0.5],
+          ["leftElbowX", -10, 160, 0.5],
+          ["leftElbowY", -180, 180, 0.5],
+          ["leftElbowZ", -180, 180, 0.5],
+          ["leftWristX", -180, 180, 0.5],
+          ["leftWristY", -180, 180, 0.5],
+          ["leftWristZ", -180, 180, 0.5]
+        ]
+      },
+      {
+        title: "Right Arm",
+        fields: [
+          ["rightShoulderX", -180, 180, 0.5],
+          ["rightShoulderY", -360, 360, 0.5],
+          ["rightShoulderZ", -180, 180, 0.5],
+          ["rightElbowX", -10, 160, 0.5],
+          ["rightElbowY", -180, 180, 0.5],
+          ["rightElbowZ", -180, 180, 0.5],
+          ["rightWristX", -180, 180, 0.5],
+          ["rightWristY", -180, 180, 0.5],
+          ["rightWristZ", -180, 180, 0.5]
+        ]
+      },
     {
       title: "Left Leg",
       fields: [
@@ -1044,6 +1051,7 @@ export function createCharacterOffsetControls(panel, config, applyCharacterTrans
     ["Torso", ["torsoOffsetX", "torsoOffsetY", "torsoOffsetZ"]],
     ["Pelvis", ["pelvisOffsetX", "pelvisOffsetY", "pelvisOffsetZ"]],
     ["Head", ["headOffsetX", "headOffsetY", "headOffsetZ"]],
+    ["Hair", ["hairOffsetX", "hairOffsetY", "hairOffsetZ"]],
     ["Left Ear", ["leftEarOffsetX", "leftEarOffsetY", "leftEarOffsetZ"]],
     ["Right Ear", ["rightEarOffsetX", "rightEarOffsetY", "rightEarOffsetZ"]],
     ["Left Eye", ["leftEyeOffsetX", "leftEyeOffsetY", "leftEyeOffsetZ"]],

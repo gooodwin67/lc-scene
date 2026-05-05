@@ -68,6 +68,26 @@ canvas {
   font-size: 16px;
 }
 
+.panel-actions {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.panel-button {
+  border: 0;
+  border-radius: 12px;
+  padding: 8px 12px;
+  background: rgba(232, 208, 166, 0.35);
+  color: #6a5443;
+  font: 700 12px "Trebuchet MS", "Segoe UI", sans-serif;
+  cursor: pointer;
+}
+
+.panel-button:hover {
+  background: rgba(232, 208, 166, 0.5);
+}
+
 .control-group {
   margin-bottom: 14px;
   padding: 10px;
@@ -136,4 +156,35 @@ canvas {
   font-size: 12px;
   text-align: right;
   color: #7b6756;
+}
+
+.action-stack {
+  position: fixed;
+  left: 18px;
+  bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 2;
+}
+
+.action-button {
+  border: 0;
+  border-radius: 16px;
+  padding: 12px 18px;
+  background: rgba(255, 250, 242, 0.92);
+  color: #6a5443;
+  font: 700 14px "Trebuchet MS", "Segoe UI", sans-serif;
+  box-shadow: 0 16px 35px rgba(131, 95, 45, 0.16);
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+}
+
+.action-button:hover {
+  background: rgba(255, 247, 235, 0.98);
+}
+
+.action-button:disabled {
+  opacity: 0.65;
+  cursor: default;
 }

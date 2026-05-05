@@ -103,11 +103,11 @@ export class CharacterScene {
     this.rightEye.add(this.rightEyeWhite);
 
     this.leftPupil = createSphere(0.065, this.eyePupilMaterial);
-    this.leftPupil.position.z = 0.06;
+    this.leftPupil.position.z = 0.04;
     this.leftEye.add(this.leftPupil);
 
     this.rightPupil = createSphere(0.065, this.eyePupilMaterial);
-    this.rightPupil.position.z = 0.06;
+    this.rightPupil.position.z = 0.04;
     this.rightEye.add(this.rightPupil);
 
     this.leftBrow = createBox(0.16, 0.04, 0.03, this.browMaterial);
@@ -141,12 +141,16 @@ export class CharacterScene {
     lowerArm.position.y = -0.30;
     elbow.add(lowerArm);
 
-    const hand = createSphere(0.11, this.skinMaterial);
-    hand.position.y = -0.60;
-    hand.scale.set(0.95, 1.12, 0.75);
-    elbow.add(hand);
+    const wrist = new THREE.Group();
+    wrist.position.y = -0.60;
+    elbow.add(wrist);
 
-    return { shoulder, elbow, upperArm, lowerArm, hand };
+    const hand = createSphere(0.11, this.skinMaterial);
+    hand.position.y = 0;
+    hand.scale.set(0.95, 1.12, 0.75);
+    wrist.add(hand);
+
+    return { shoulder, elbow, wrist, upperArm, lowerArm, hand };
   }
 
   buildLeg(side) {
@@ -239,6 +243,11 @@ export class CharacterScene {
     );
     this.head.scale.set(1.08 * this.config.headScaleX, 1.0 * this.config.headScaleY, 1.03 * this.config.headScaleZ);
     this.hair.scale.set(1.06 * this.config.hairScaleX, 1.0 * this.config.hairScaleY, 1.04 * this.config.hairScaleZ);
+    this.hair.position.set(
+      this.config.hairOffsetX,
+      0.06 + this.config.hairOffsetY,
+      -0.06 + this.config.hairOffsetZ
+    );
     this.fringe.scale.set(1.55 * this.config.fringeScaleX, 0.62 * this.config.fringeScaleY, 1.05 * this.config.fringeScaleZ);
     this.sideHair.scale.set(1.0 * this.config.sideHairScaleX, 1.45 * this.config.sideHairScaleY, 0.75 * this.config.sideHairScaleZ);
     this.earLeft.scale.set(this.config.earScaleX, this.config.earScaleY, this.config.earScaleZ);
@@ -380,11 +389,21 @@ export class CharacterScene {
     this.leftArm.shoulder.rotation.y = radians(this.config.leftShoulderY);
     this.leftArm.shoulder.rotation.z = radians(this.config.leftShoulderZ);
     this.leftArm.elbow.rotation.x = radians(elbowBase + this.config.leftElbowX);
+    this.leftArm.elbow.rotation.y = radians(this.config.leftElbowY);
+    this.leftArm.elbow.rotation.z = radians(this.config.leftElbowZ);
+    this.leftArm.wrist.rotation.x = radians(this.config.leftWristX);
+    this.leftArm.wrist.rotation.y = radians(this.config.leftWristY);
+    this.leftArm.wrist.rotation.z = radians(this.config.leftWristZ);
 
     this.rightArm.shoulder.rotation.x = radians(rightShoulderBaseX + this.config.rightShoulderX);
     this.rightArm.shoulder.rotation.y = radians(this.config.rightShoulderY);
     this.rightArm.shoulder.rotation.z = radians(this.config.rightShoulderZ);
     this.rightArm.elbow.rotation.x = radians(elbowBase + this.config.rightElbowX);
+    this.rightArm.elbow.rotation.y = radians(this.config.rightElbowY);
+    this.rightArm.elbow.rotation.z = radians(this.config.rightElbowZ);
+    this.rightArm.wrist.rotation.x = radians(this.config.rightWristX);
+    this.rightArm.wrist.rotation.y = radians(this.config.rightWristY);
+    this.rightArm.wrist.rotation.z = radians(this.config.rightWristZ);
 
     this.leftLeg.hip.rotation.x = radians(hipBase + this.config.leftHipX);
     this.leftLeg.hip.rotation.y = radians(this.config.leftHipY);
