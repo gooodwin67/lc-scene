@@ -125,6 +125,7 @@ const character = new CharacterScene(scene, characterState);
 const characterDefaultPose = cloneConfig(characterConfig);
 const idleMouseBaseState = cloneConfig(mouseConfig);
 const idleCharacterBaseState = cloneConfig(characterConfig);
+idleCharacterBaseState.headYaw = 32;
 
 const controlPanel = createControlPanel("Board Controls");
 document.body.appendChild(controlPanel);
@@ -205,38 +206,105 @@ mouseTwoButton.type = "button";
 mouseTwoButton.textContent = "Mouse 2";
 actionStack.appendChild(mouseTwoButton);
 
+const mouseThreeButton = document.createElement("button");
+mouseThreeButton.className = "action-button";
+mouseThreeButton.type = "button";
+mouseThreeButton.textContent = "Mouse 3";
+actionStack.appendChild(mouseThreeButton);
+
+const mouseFourButton = document.createElement("button");
+mouseFourButton.className = "action-button";
+mouseFourButton.type = "button";
+mouseFourButton.textContent = "Mouse 4";
+actionStack.appendChild(mouseFourButton);
+
 let characterAnimation = null;
 let idleEnabled = false;
-let poseAnimation = null;
+const poseAnimations = [];
+let nextIdleMovementTime = 0;
+let lastPoseUpdateTime = null;
+let smoothReturnTarget = null;
+let idleHeadYawValue = 32;
+let idleHeadYawStart = 32;
+let idleHeadYawTarget = 32;
+let idleHeadYawMoveStartTime = 0;
+let idleHeadYawMoveDuration = 600;
+let idleHeadYawHoldUntil = 0;
 
 const mouseMovementOne = {
   mouse: {
-    x: 1.89
+    x: 1.975,
+    z: 2.515
   },
   character: {
-    leftShoulderX: -79,
-    leftShoulderY: -162.5,
-    leftShoulderZ: 36,
-    leftElbowX: 21,
-    leftElbowY: -3,
-    leftElbowZ: -15.5
+    leftShoulderX: -78.625,
+    leftShoulderY: -176.25,
+    leftShoulderZ: 32.5,
+    leftElbowX: 30.875,
+    leftElbowY: -1.5,
+    leftElbowZ: -15,
+    leftWristX: 1,
+    leftWristY: -42,
+    leftWristZ: -13.5
   }
 };
 
 const mouseMovementTwo = {
   mouse: {
-    z: 2.69
+    x: 2.06,
+    z: 2.5425
   },
   character: {
-    leftShoulderX: -85.5,
-    leftShoulderY: -203.5,
-    leftShoulderZ: 23.5,
-    leftElbowX: 32.5
+    leftShoulderX: -80.25,
+    leftShoulderY: -183.25,
+    leftShoulderZ: 31,
+    leftElbowX: 30.5,
+    leftElbowY: 0,
+    leftElbowZ: -14.5,
+    leftWristX: 1,
+    leftWristY: -42,
+    leftWristZ: -13.5
+  }
+};
+
+const mouseMovementThree = {
+  mouse: {
+    x: 2.145,
+    z: 2.515
+  },
+  character: {
+    leftShoulderX: -82.375,
+    leftShoulderY: -178,
+    leftShoulderZ: 33.5,
+    leftElbowX: 22.625,
+    leftElbowY: 1.5,
+    leftElbowZ: -14,
+    leftWristX: 1,
+    leftWristY: -42,
+    leftWristZ: -13.5
+  }
+};
+
+const mouseMovementFour = {
+  mouse: {
+    x: 2.06,
+    z: 2.4875
+  },
+  character: {
+    leftShoulderX: -81.25,
+    leftShoulderY: -170.75,
+    leftShoulderZ: 35,
+    leftElbowX: 20.375,
+    leftElbowY: 0,
+    leftElbowZ: -14.5,
+    leftWristX: 1,
+    leftWristY: -42,
+    leftWristZ: -13.5
   }
 };
 
 const idleCategories = {
-  mouse: [mouseMovementOne, mouseMovementTwo]
+  mouse: [mouseMovementOne, mouseMovementTwo, mouseMovementThree, mouseMovementFour]
 };
 
 const guiDiffSources = [
@@ -363,6 +431,44 @@ function setMousePoseFromMap(values) {
   inputDevices.applyMouse();
 }
 
+function smoothValuesToTarget(state, target, alpha) {
+  Object.entries(target).forEach(([key, value]) => {
+    const current = state[key];
+    if (typeof current !== "number" || typeof value !== "number") {
+      state[key] = value;
+      return;
+    }
+
+    const next = lerp(current, value, alpha);
+    state[key] = Math.abs(next - value) < 0.001 ? value : next;
+  });
+}
+
+function applySmoothedPoseTargets(mouseTarget, characterTarget, time) {
+  if (lastPoseUpdateTime === null) {
+    lastPoseUpdateTime = time;
+  }
+
+  const delta = Math.min(64, Math.max(0, time - lastPoseUpdateTime));
+  const alpha = 1 - Math.pow(0.001, delta / 420);
+  lastPoseUpdateTime = time;
+
+  if (Object.keys(mouseTarget).length > 0) {
+    smoothValuesToTarget(mouseState, mouseTarget, alpha);
+    inputDevices.applyMouse();
+  }
+  if (Object.keys(characterTarget).length > 0) {
+    smoothValuesToTarget(characterState, characterTarget, alpha);
+    character.apply();
+  }
+}
+
+function isNearTarget(state, target) {
+  return Object.entries(target).every(([key, value]) => {
+    return typeof state[key] !== "number" || typeof value !== "number" || Math.abs(state[key] - value) < 0.01;
+  });
+}
+
 function blendPoseValues(base, target, eased) {
   const result = {};
   Object.keys(target).forEach((key) => {
@@ -396,121 +502,176 @@ function createPoseAnimation(movement, options = {}) {
     characterTarget,
     mouseKeys,
     characterKeys,
-    mouseStart: pickPoseValues(mouseState, mouseKeys),
-    characterStart: pickPoseValues(characterState, characterKeys),
-    mouseEnd: pickPoseValues(idleMouseBaseState, mouseKeys),
-    characterEnd: pickPoseValues(idleCharacterBaseState, characterKeys),
+    speed: options.speed ?? 1,
+    movement,
     onComplete: options.onComplete ?? null
   };
 }
 
 function playMouseMovement(movement, options = {}) {
   characterAnimation = null;
-  poseAnimation = createPoseAnimation(movement, options);
+  smoothReturnTarget = null;
+  if (!options.allowOverlap) {
+    poseAnimations.length = 0;
+  }
+  poseAnimations.push(createPoseAnimation(movement, options));
   waveButton.disabled = false;
 }
 
 function pickRandomMouseMovement() {
-  const movements = idleCategories.mouse;
+  const activeMovements = new Set(poseAnimations.map((animation) => animation.movement));
+  const availableMovements = idleCategories.mouse.filter((movement) => !activeMovements.has(movement));
+  const movements = availableMovements.length > 0 ? availableMovements : idleCategories.mouse;
   const index = Math.floor(Math.random() * movements.length);
   return movements[index];
 }
 
-function queueNextIdleMovement() {
-  if (!idleEnabled || characterAnimation || poseAnimation) {
+function queueNextIdleMovement(time) {
+  if (!idleEnabled || characterAnimation || poseAnimations.length >= 2 || time < nextIdleMovementTime) {
     return;
   }
 
   playMouseMovement(pickRandomMouseMovement(), {
+    allowOverlap: true,
+    speed: 1.8 + Math.random() * 0.4,
     onComplete: () => {
       if (!idleEnabled) {
         return;
       }
-      poseAnimation = null;
-      queueNextIdleMovement();
     }
   });
+  nextIdleMovementTime = time + 360 + Math.random() * 260;
 }
 
 function stopAllAnimations() {
   characterAnimation = null;
-  poseAnimation = null;
+  poseAnimations.length = 0;
+  nextIdleMovementTime = 0;
+  resetIdleHeadYaw();
   idleEnabled = false;
-  setMousePoseFromMap(idleMouseBaseState);
-  setCharacterPoseFromMap(idleCharacterBaseState);
+  smoothReturnTarget = {
+    mouse: idleMouseBaseState,
+    character: characterDefaultPose
+  };
   waveButton.disabled = false;
   updateActionButtons();
 }
 
-function updatePoseAnimation(time) {
-  if (!poseAnimation || characterAnimation) {
-    return;
+function updatePoseStage(animation, time) {
+  if (animation.stageStartTime === null) {
+    animation.stageStartTime = time;
   }
 
-  if (poseAnimation.stageStartTime === null) {
-    poseAnimation.stageStartTime = time;
-  }
+  const elapsed = time - animation.stageStartTime;
+  const speed = animation.speed;
 
-  const elapsed = time - poseAnimation.stageStartTime;
-
-  if (poseAnimation.stage === "to") {
-    const duration = 1100;
-    const t = Math.min(1, elapsed / duration);
-    const eased = easeInOutSine(t);
-    if (poseAnimation.mouseKeys.length > 0) {
-      setMousePoseFromMap(blendPoseValues(poseAnimation.mouseStart, poseAnimation.mouseTarget, eased));
-    }
-    if (poseAnimation.characterKeys.length > 0) {
-      setCharacterPoseFromMap(blendPoseValues(poseAnimation.characterStart, poseAnimation.characterTarget, eased));
-    }
-
+  if (animation.stage === "to") {
+    const t = Math.min(1, elapsed / (1100 / speed));
+    animation.weight = easeInOutSine(t);
     if (t >= 1) {
-      poseAnimation.stage = "hold";
-      poseAnimation.stageStartTime = time;
+      animation.stage = "hold";
+      animation.stageStartTime = time;
+    }
+    return false;
+  }
+
+  if (animation.stage === "hold") {
+    animation.weight = 1;
+    if (elapsed >= 320 / speed) {
+      animation.stage = "from";
+      animation.stageStartTime = time;
+    }
+    return false;
+  }
+
+  const t = Math.min(1, elapsed / (1200 / speed));
+  animation.weight = 1 - easeInOutSine(t);
+  return t >= 1;
+}
+
+function addWeightedPoseContribution(values, base, target, keys, weight) {
+  keys.forEach((key) => {
+    values[key] = (values[key] ?? base[key]) + (target[key] - base[key]) * weight;
+  });
+}
+
+function resetIdleHeadYaw() {
+  idleHeadYawValue = characterState.headYaw;
+  idleHeadYawStart = idleHeadYawValue;
+  idleHeadYawTarget = idleHeadYawValue;
+  idleHeadYawMoveStartTime = 0;
+  idleHeadYawMoveDuration = 600;
+  idleHeadYawHoldUntil = 0;
+}
+
+function updateIdleHeadYaw(time) {
+  if (time < idleHeadYawHoldUntil) {
+    return idleHeadYawTarget;
+  }
+
+  if (idleHeadYawMoveStartTime === 0) {
+    idleHeadYawStart = idleHeadYawValue;
+    idleHeadYawTarget = 11 + Math.random() * 29;
+    idleHeadYawMoveStartTime = time;
+    idleHeadYawMoveDuration = 420 + Math.random() * 680;
+  }
+
+  const t = Math.min(1, (time - idleHeadYawMoveStartTime) / idleHeadYawMoveDuration);
+  idleHeadYawValue = lerp(idleHeadYawStart, idleHeadYawTarget, easeInOutSine(t));
+
+  if (t >= 1) {
+    idleHeadYawValue = idleHeadYawTarget;
+    idleHeadYawMoveStartTime = 0;
+    idleHeadYawHoldUntil = time + 180 + Math.random() * 420;
+  }
+
+  return idleHeadYawValue;
+}
+
+function updatePoseAnimations(time) {
+  if (characterAnimation) {
+    return;
+  }
+
+  if (!idleEnabled && poseAnimations.length === 0 && smoothReturnTarget) {
+    applySmoothedPoseTargets(smoothReturnTarget.mouse, smoothReturnTarget.character, time);
+    if (isNearTarget(mouseState, smoothReturnTarget.mouse) && isNearTarget(characterState, smoothReturnTarget.character)) {
+      smoothReturnTarget = null;
     }
     return;
   }
 
-  if (poseAnimation.stage === "hold") {
-    if (poseAnimation.mouseKeys.length > 0) {
-      setMousePoseFromMap(poseAnimation.mouseTarget);
-    }
-    if (poseAnimation.characterKeys.length > 0) {
-      setCharacterPoseFromMap(poseAnimation.characterTarget);
-    }
-
-    if (elapsed >= 320) {
-      poseAnimation.stage = "from";
-      poseAnimation.stageStartTime = time;
-    }
-    return;
-  }
-
-  if (poseAnimation.stage === "from") {
-    const duration = 1200;
-    const t = Math.min(1, elapsed / duration);
-    const eased = easeInOutSine(t);
-    if (poseAnimation.mouseKeys.length > 0) {
-      setMousePoseFromMap(blendPoseValues(poseAnimation.mouseTarget, poseAnimation.mouseEnd, eased));
-    }
-    if (poseAnimation.characterKeys.length > 0) {
-      setCharacterPoseFromMap(blendPoseValues(poseAnimation.characterTarget, poseAnimation.characterEnd, eased));
-    }
-
-    if (t >= 1) {
-      const onComplete = poseAnimation.onComplete;
-      if (poseAnimation.mouseKeys.length > 0) {
-        setMousePoseFromMap(poseAnimation.mouseEnd);
-      }
-      if (poseAnimation.characterKeys.length > 0) {
-        setCharacterPoseFromMap(poseAnimation.characterEnd);
-      }
-      poseAnimation = null;
+  for (let index = poseAnimations.length - 1; index >= 0; index -= 1) {
+    const animation = poseAnimations[index];
+    if (updatePoseStage(animation, time)) {
+      const onComplete = animation.onComplete;
+      poseAnimations.splice(index, 1);
       if (onComplete) {
         onComplete();
       }
     }
   }
+
+  const mouseValues = {};
+  const characterValues = {};
+  if (idleEnabled) {
+    mouseValues.x = idleMouseBaseState.x;
+    mouseValues.z = idleMouseBaseState.z;
+    characterValues.headYaw = updateIdleHeadYaw(time);
+  }
+
+  poseAnimations.forEach((animation) => {
+    addWeightedPoseContribution(mouseValues, idleMouseBaseState, animation.mouseTarget, animation.mouseKeys, animation.weight ?? 0);
+    addWeightedPoseContribution(
+      characterValues,
+      idleCharacterBaseState,
+      animation.characterTarget,
+      animation.characterKeys,
+      animation.weight ?? 0
+    );
+  });
+
+  applySmoothedPoseTargets(mouseValues, characterValues, time);
 }
 
 function beginCharacterGreeting() {
@@ -518,7 +679,10 @@ function beginCharacterGreeting() {
     return;
   }
 
-  poseAnimation = null;
+  poseAnimations.length = 0;
+  nextIdleMovementTime = 0;
+  resetIdleHeadYaw();
+  smoothReturnTarget = null;
   idleEnabled = false;
   updateActionButtons();
   waveButton.disabled = true;
@@ -627,7 +791,7 @@ function updateCharacterAnimation(time) {
       characterAnimation = null;
       waveButton.disabled = false;
       if (idleEnabled) {
-        queueNextIdleMovement();
+        nextIdleMovementTime = 0;
       }
     }
   }
@@ -640,12 +804,13 @@ function toggleIdleLoop() {
   }
 
   characterAnimation = null;
-  poseAnimation = null;
+  poseAnimations.length = 0;
+  nextIdleMovementTime = 0;
+  resetIdleHeadYaw();
+  smoothReturnTarget = null;
+  lastPoseUpdateTime = null;
   idleEnabled = true;
-  setMousePoseFromMap(idleMouseBaseState);
-  setCharacterPoseFromMap(idleCharacterBaseState);
   updateActionButtons();
-  queueNextIdleMovement();
 }
 
 waveButton.addEventListener("click", beginCharacterGreeting);
@@ -659,14 +824,24 @@ mouseTwoButton.addEventListener("click", () => {
   updateActionButtons();
   playMouseMovement(mouseMovementTwo);
 });
+mouseThreeButton.addEventListener("click", () => {
+  idleEnabled = false;
+  updateActionButtons();
+  playMouseMovement(mouseMovementThree);
+});
+mouseFourButton.addEventListener("click", () => {
+  idleEnabled = false;
+  updateActionButtons();
+  playMouseMovement(mouseMovementFour);
+});
 idleToggleButton.addEventListener("click", toggleIdleLoop);
 stopButton.addEventListener("click", stopAllAnimations);
 updateActionButtons();
 
 function animate(time) {
-  updatePoseAnimation(time);
-  if (idleEnabled && !characterAnimation && !poseAnimation) {
-    queueNextIdleMovement();
+  updatePoseAnimations(time);
+  if (idleEnabled && !characterAnimation) {
+    queueNextIdleMovement(time);
   }
   updateCharacterAnimation(time);
   cameraRig.controls.update();
