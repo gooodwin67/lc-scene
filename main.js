@@ -126,6 +126,8 @@ const characterDefaultPose = cloneConfig(characterConfig);
 const idleMouseBaseState = cloneConfig(mouseConfig);
 const idleCharacterBaseState = cloneConfig(characterConfig);
 idleCharacterBaseState.headYaw = 32;
+const leftMonitorIdleBaseState = cloneConfig(monitorTwoConfig);
+const rightMonitorIdleBaseState = cloneConfig(monitorOneConfig);
 
 const controlPanel = createControlPanel("Board Controls");
 document.body.appendChild(controlPanel);
@@ -180,8 +182,13 @@ document.body.appendChild(actionStack);
 const idleToggleButton = document.createElement("button");
 idleToggleButton.className = "action-button";
 idleToggleButton.type = "button";
-idleToggleButton.textContent = "Idle Start/Stop";
+idleToggleButton.textContent = "left_monitor_idle";
 actionStack.appendChild(idleToggleButton);
+const rightMonitorIdleButton = document.createElement("button");
+rightMonitorIdleButton.className = "action-button";
+rightMonitorIdleButton.type = "button";
+rightMonitorIdleButton.textContent = "right_monitor_idle";
+actionStack.appendChild(rightMonitorIdleButton);
 const stopButton = document.createElement("button");
 stopButton.className = "action-button";
 stopButton.type = "button";
@@ -220,6 +227,8 @@ actionStack.appendChild(mouseFourButton);
 
 let characterAnimation = null;
 let idleEnabled = false;
+let idleMode = null;
+let pendingIdleMode = null;
 const poseAnimations = [];
 let nextIdleMovementTime = 0;
 let lastPoseUpdateTime = null;
@@ -230,6 +239,25 @@ let idleHeadYawTarget = 32;
 let idleHeadYawMoveStartTime = 0;
 let idleHeadYawMoveDuration = 600;
 let idleHeadYawHoldUntil = 0;
+let nextIdleMonitorActionTime = 0;
+let lastMonitorUpdateTime = null;
+let nextRightMonitorActionTime = 0;
+let lastRightMonitorUpdateTime = null;
+let nextRightCodeEnterTime = 0;
+let rightMonitorIdlePhase = "typing";
+let nextRightMonitorPhaseTime = 0;
+let rightMonitorHeadYawValue = -24;
+let rightMonitorHeadYawStart = -24;
+let rightMonitorHeadYawTarget = -24;
+let rightMonitorHeadYawMoveStartTime = 0;
+let rightMonitorHeadYawMoveDuration = 700;
+let rightMonitorHeadYawHoldUntil = 0;
+let leftMonitorLineScrollValue = 0;
+let leftMonitorLineScrollStart = 0;
+let leftMonitorLineScrollTarget = 0;
+let leftMonitorLineScrollStartTime = 0;
+let leftMonitorLineScrollDuration = 500;
+let leftMonitorLineScrollHoldUntil = 0;
 
 const mouseMovementOne = {
   mouse: {
@@ -487,6 +515,7 @@ function pickPoseValues(source, keys) {
 
 function updateActionButtons() {
   idleToggleButton.style.opacity = idleEnabled ? "1" : "";
+  rightMonitorIdleButton.style.opacity = idleEnabled && idleMode === "right_monitor_idle" ? "1" : "";
 }
 
 function createPoseAnimation(movement, options = {}) {
@@ -526,34 +555,83 @@ function pickRandomMouseMovement() {
   return movements[index];
 }
 
+function isLeftHandReadyForMouse() {
+  const keys = [
+    "leftShoulderX",
+    "leftShoulderY",
+    "leftShoulderZ",
+    "leftElbowX",
+    "leftElbowY",
+    "leftElbowZ",
+    "leftWristX",
+    "leftWristY",
+    "leftWristZ"
+  ];
+
+  return keys.every((key) => Math.abs(characterState[key] - characterDefaultPose[key]) < 1.5);
+}
+
 function queueNextIdleMovement(time) {
-  if (!idleEnabled || characterAnimation || poseAnimations.length >= 2 || time < nextIdleMovementTime) {
+  if (!idleEnabled || idleMode !== "left_monitor_idle" || characterAnimation || poseAnimations.length >= 2 || time < nextIdleMovementTime) {
+    return;
+  }
+  if (!isLeftHandReadyForMouse()) {
+    nextIdleMovementTime = time + 120;
     return;
   }
 
   playMouseMovement(pickRandomMouseMovement(), {
     allowOverlap: true,
-    speed: 1.8 + Math.random() * 0.4,
+    speed: 1.8 + Math.random() * 3,
     onComplete: () => {
       if (!idleEnabled) {
         return;
       }
     }
   });
-  nextIdleMovementTime = time + 360 + Math.random() * 260;
+  nextIdleMovementTime = time + Math.random() * 2000;
 }
 
 function stopAllAnimations() {
+  const returnCharacter = pendingIdleMode
+    ? {
+      leftShoulderX: characterDefaultPose.leftShoulderX,
+      leftShoulderY: characterDefaultPose.leftShoulderY,
+      leftShoulderZ: characterDefaultPose.leftShoulderZ,
+      leftElbowX: characterDefaultPose.leftElbowX,
+      leftElbowY: characterDefaultPose.leftElbowY,
+      leftElbowZ: characterDefaultPose.leftElbowZ,
+      leftWristX: characterDefaultPose.leftWristX,
+      leftWristY: characterDefaultPose.leftWristY,
+      leftWristZ: characterDefaultPose.leftWristZ
+    }
+    : characterDefaultPose;
+
   characterAnimation = null;
   poseAnimations.length = 0;
   nextIdleMovementTime = 0;
   resetIdleHeadYaw();
+  resetIdleMonitor();
   idleEnabled = false;
+  idleMode = null;
   smoothReturnTarget = {
     mouse: idleMouseBaseState,
-    character: characterDefaultPose
+    character: returnCharacter
   };
   waveButton.disabled = false;
+  updateActionButtons();
+}
+
+function beginIdleMode(nextMode) {
+  characterAnimation = null;
+  poseAnimations.length = 0;
+  nextIdleMovementTime = 0;
+  resetIdleHeadYaw();
+  resetIdleMonitor();
+  smoothReturnTarget = null;
+  lastPoseUpdateTime = null;
+  idleEnabled = true;
+  idleMode = nextMode;
   updateActionButtons();
 }
 
@@ -628,6 +706,174 @@ function updateIdleHeadYaw(time) {
   return idleHeadYawValue;
 }
 
+function resetIdleMonitor() {
+  const now = performance.now();
+  nextIdleMonitorActionTime = 0;
+  lastMonitorUpdateTime = null;
+  nextRightMonitorActionTime = Infinity;
+  lastRightMonitorUpdateTime = null;
+  nextRightCodeEnterTime = Infinity;
+  rightMonitorIdlePhase = "typing";
+  nextRightMonitorPhaseTime = Infinity;
+  rightMonitorHeadYawValue = -24;
+  rightMonitorHeadYawStart = -24;
+  rightMonitorHeadYawTarget = -24;
+  rightMonitorHeadYawMoveStartTime = 0;
+  rightMonitorHeadYawMoveDuration = 700;
+  rightMonitorHeadYawHoldUntil = 0;
+  leftMonitorLineScrollValue = monitorTwoState.uiLinesScroll ?? 0;
+  leftMonitorLineScrollStart = leftMonitorLineScrollValue;
+  leftMonitorLineScrollTarget = leftMonitorLineScrollValue;
+  leftMonitorLineScrollStartTime = 0;
+  leftMonitorLineScrollDuration = 500;
+  leftMonitorLineScrollHoldUntil = 0;
+}
+
+function pickIdleMonitorTarget(time) {
+  monitorTwoState.uiActiveIconIndex = Math.floor(Math.random() * 4);
+  monitorTwoState.uiLinesWidthScale = 0.72 + Math.random() * 0.66;
+
+  nextIdleMonitorActionTime = time + 2600 + Math.random() * 2600;
+}
+
+function updateLeftMonitorLineScroll(time) {
+  if (time < leftMonitorLineScrollHoldUntil) {
+    return leftMonitorLineScrollValue;
+  }
+
+  if (leftMonitorLineScrollStartTime === 0) {
+    leftMonitorLineScrollStart = leftMonitorLineScrollValue;
+    leftMonitorLineScrollTarget = (leftMonitorLineScrollValue + 0.35 + Math.random() * 0.75) % 7;
+    leftMonitorLineScrollStartTime = time;
+    leftMonitorLineScrollDuration = 360 + Math.random() * 720;
+  }
+
+  const t = Math.min(1, (time - leftMonitorLineScrollStartTime) / leftMonitorLineScrollDuration);
+  leftMonitorLineScrollValue = lerp(leftMonitorLineScrollStart, leftMonitorLineScrollTarget, easeInOutSine(t));
+
+  if (t >= 1) {
+    leftMonitorLineScrollValue = leftMonitorLineScrollTarget;
+    leftMonitorLineScrollStartTime = 0;
+    leftMonitorLineScrollHoldUntil = time + 350 + Math.random() * 1100;
+  }
+
+  return leftMonitorLineScrollValue;
+}
+
+function updateIdleMonitor(time) {
+  if (lastMonitorUpdateTime === null) {
+    lastMonitorUpdateTime = time;
+  }
+
+  const delta = Math.min(64, Math.max(0, time - lastMonitorUpdateTime));
+  const alpha = 1 - Math.pow(0.001, delta / 520);
+  lastMonitorUpdateTime = time;
+
+  if (idleEnabled && idleMode === "left_monitor_idle" && time >= nextIdleMonitorActionTime) {
+    pickIdleMonitorTarget(time);
+  }
+
+  if (idleEnabled && idleMode === "left_monitor_idle") {
+    monitorTwoState.uiLinesScroll = updateLeftMonitorLineScroll(time);
+  }
+
+  smoothValuesToTarget(monitorTwoState, {
+    uiDotX: leftMonitorIdleBaseState.uiDotX,
+    uiDotY: leftMonitorIdleBaseState.uiDotY,
+    uiPanelX: leftMonitorIdleBaseState.uiPanelX,
+    uiIconStartY: leftMonitorIdleBaseState.uiIconStartY,
+    uiLinesX: leftMonitorIdleBaseState.uiLinesX,
+    uiLinesY: leftMonitorIdleBaseState.uiLinesY,
+    uiTopIconWidth: leftMonitorIdleBaseState.uiTopIconWidth,
+    uiTopIconY: leftMonitorIdleBaseState.uiTopIconY
+  }, alpha);
+  if (!idleEnabled || idleMode !== "left_monitor_idle") {
+    monitorTwoState.uiActiveIconIndex = leftMonitorIdleBaseState.uiActiveIconIndex;
+    monitorTwoState.uiLinesWidthScale = leftMonitorIdleBaseState.uiLinesWidthScale;
+    monitorTwoState.uiLinesScroll = leftMonitorIdleBaseState.uiLinesScroll;
+  }
+  monitorTwo.apply();
+}
+
+function pickRightMonitorTarget(time) {
+  monitorOneState.codeScroll = (Math.floor(monitorOneState.codeScroll) + 1) % 14;
+  monitorOneState.codeVariant = Math.floor(Math.random() * 8);
+  monitorOneState.codeWidthScale = 0.92 + Math.random() * 0.18;
+  monitorOneState.codeActiveLine = 13;
+  monitorOneState.codeTypingProgress = 0.18;
+  nextRightCodeEnterTime = time + 700 + Math.random() * 900;
+}
+
+function updateRightMonitorPhase(time) {
+  if (time < nextRightMonitorPhaseTime) {
+    return;
+  }
+
+  rightMonitorIdlePhase = rightMonitorIdlePhase === "typing" ? "reading" : "typing";
+  nextRightMonitorPhaseTime = time + (rightMonitorIdlePhase === "typing"
+    ? 2200 + Math.random() * 2600
+    : 3200 + Math.random() * 2800);
+}
+
+function updateRightMonitorReadingHeadYaw(time) {
+  if (time < rightMonitorHeadYawHoldUntil) {
+    return rightMonitorHeadYawTarget;
+  }
+
+  if (rightMonitorHeadYawMoveStartTime === 0) {
+    rightMonitorHeadYawStart = rightMonitorHeadYawValue;
+    rightMonitorHeadYawTarget = -34 + Math.random() * 20;
+    rightMonitorHeadYawMoveStartTime = time;
+    rightMonitorHeadYawMoveDuration = 650 + Math.random() * 850;
+  }
+
+  const t = Math.min(1, (time - rightMonitorHeadYawMoveStartTime) / rightMonitorHeadYawMoveDuration);
+  rightMonitorHeadYawValue = lerp(rightMonitorHeadYawStart, rightMonitorHeadYawTarget, easeInOutSine(t));
+
+  if (t >= 1) {
+    rightMonitorHeadYawValue = rightMonitorHeadYawTarget;
+    rightMonitorHeadYawMoveStartTime = 0;
+    rightMonitorHeadYawHoldUntil = time + 250 + Math.random() * 550;
+  }
+
+  return rightMonitorHeadYawValue;
+}
+
+function updateRightMonitorIdle(time) {
+  if (lastRightMonitorUpdateTime === null) {
+    lastRightMonitorUpdateTime = time;
+    if (idleEnabled && idleMode === "right_monitor_idle") {
+      nextRightMonitorActionTime = time + 1600 + Math.random() * 1800;
+      nextRightCodeEnterTime = time + 700 + Math.random() * 900;
+      nextRightMonitorPhaseTime = time + 2200 + Math.random() * 2600;
+    }
+  }
+
+  const delta = Math.min(64, Math.max(0, time - lastRightMonitorUpdateTime));
+  lastRightMonitorUpdateTime = time;
+
+  if (idleEnabled && idleMode === "right_monitor_idle") {
+    updateRightMonitorPhase(time);
+    if (rightMonitorIdlePhase === "typing" && time >= nextRightMonitorActionTime) {
+      monitorOneState.codeVariant = Math.floor(Math.random() * 8);
+      monitorOneState.codeWidthScale = 0.92 + Math.random() * 0.18;
+      nextRightMonitorActionTime = time + 1600 + Math.random() * 1800;
+    }
+    if (rightMonitorIdlePhase === "typing") {
+      monitorOneState.codeTypingProgress = Math.min(1, monitorOneState.codeTypingProgress + delta / 650);
+      if (time >= nextRightCodeEnterTime && monitorOneState.codeTypingProgress >= 0.95) {
+        pickRightMonitorTarget(time);
+      }
+      monitorOneState.codeCursorVisible = Math.floor(time / 260) % 2 === 0;
+    } else {
+      monitorOneState.codeCursorVisible = Math.floor(time / 420) % 2 === 0;
+    }
+  }
+
+  monitorOneState.codeCursorVisible = Math.floor(time / 420) % 2 === 0;
+  monitorOne.apply();
+}
+
 function updatePoseAnimations(time) {
   if (characterAnimation) {
     return;
@@ -637,6 +883,11 @@ function updatePoseAnimations(time) {
     applySmoothedPoseTargets(smoothReturnTarget.mouse, smoothReturnTarget.character, time);
     if (isNearTarget(mouseState, smoothReturnTarget.mouse) && isNearTarget(characterState, smoothReturnTarget.character)) {
       smoothReturnTarget = null;
+      if (pendingIdleMode) {
+        const nextMode = pendingIdleMode;
+        pendingIdleMode = null;
+        beginIdleMode(nextMode);
+      }
     }
     return;
   }
@@ -654,22 +905,62 @@ function updatePoseAnimations(time) {
 
   const mouseValues = {};
   const characterValues = {};
-  if (idleEnabled) {
+  if (idleEnabled && idleMode === "left_monitor_idle") {
     mouseValues.x = idleMouseBaseState.x;
     mouseValues.z = idleMouseBaseState.z;
     characterValues.headYaw = updateIdleHeadYaw(time);
+    characterValues.torsoYaw = idleCharacterBaseState.torsoYaw;
+    characterValues.headPitch = idleCharacterBaseState.headPitch;
+    characterValues.leftShoulderX = idleCharacterBaseState.leftShoulderX;
+    characterValues.leftShoulderY = idleCharacterBaseState.leftShoulderY;
+    characterValues.leftShoulderZ = idleCharacterBaseState.leftShoulderZ;
+    characterValues.leftElbowX = idleCharacterBaseState.leftElbowX;
+    characterValues.leftElbowY = idleCharacterBaseState.leftElbowY;
+    characterValues.leftElbowZ = idleCharacterBaseState.leftElbowZ;
+    characterValues.leftWristX = idleCharacterBaseState.leftWristX;
+    characterValues.leftWristY = idleCharacterBaseState.leftWristY;
+    characterValues.leftWristZ = idleCharacterBaseState.leftWristZ;
+  } else if (idleEnabled && idleMode === "right_monitor_idle") {
+    const typing = rightMonitorIdlePhase === "typing";
+    const tap = Math.sin(time * 0.018);
+    const altTap = Math.sin(time * 0.023 + Math.PI);
+    mouseValues.x = idleMouseBaseState.x;
+    mouseValues.z = idleMouseBaseState.z;
+    characterValues.torsoYaw = 29;
+    characterValues.headYaw = typing ? -4 : updateRightMonitorReadingHeadYaw(time);
+    characterValues.headPitch = typing ? 12 : -7;
+    characterValues.leftShoulderX = -72 + (typing ? tap * 2 : 0);
+    characterValues.leftShoulderY = -154;
+    characterValues.leftShoulderZ = 24;
+    characterValues.leftElbowX = 42 + (typing ? altTap * 3 : 0);
+    characterValues.leftElbowY = -7;
+    characterValues.leftElbowZ = -10;
+    characterValues.leftWristX = -9 + (typing ? tap * 5 : 0);
+    characterValues.leftWristY = -28;
+    characterValues.leftWristZ = -9;
+    characterValues.rightShoulderX = -76 + (typing ? altTap * 2 : 0);
+    characterValues.rightShoulderY = -202;
+    characterValues.rightShoulderZ = -8;
+    characterValues.rightElbowX = 39 + (typing ? tap * 3 : 0);
+    characterValues.rightElbowY = 8;
+    characterValues.rightElbowZ = 9;
+    characterValues.rightWristX = -8 + (typing ? altTap * 5 : 0);
+    characterValues.rightWristY = 24;
+    characterValues.rightWristZ = 7;
   }
 
-  poseAnimations.forEach((animation) => {
-    addWeightedPoseContribution(mouseValues, idleMouseBaseState, animation.mouseTarget, animation.mouseKeys, animation.weight ?? 0);
-    addWeightedPoseContribution(
-      characterValues,
-      idleCharacterBaseState,
-      animation.characterTarget,
-      animation.characterKeys,
-      animation.weight ?? 0
-    );
-  });
+  if (idleMode === "left_monitor_idle") {
+    poseAnimations.forEach((animation) => {
+      addWeightedPoseContribution(mouseValues, idleMouseBaseState, animation.mouseTarget, animation.mouseKeys, animation.weight ?? 0);
+      addWeightedPoseContribution(
+        characterValues,
+        idleCharacterBaseState,
+        animation.characterTarget,
+        animation.characterKeys,
+        animation.weight ?? 0
+      );
+    });
+  }
 
   applySmoothedPoseTargets(mouseValues, characterValues, time);
 }
@@ -681,9 +972,12 @@ function beginCharacterGreeting() {
 
   poseAnimations.length = 0;
   nextIdleMovementTime = 0;
+  pendingIdleMode = null;
   resetIdleHeadYaw();
+  resetIdleMonitor();
   smoothReturnTarget = null;
   idleEnabled = false;
+  idleMode = null;
   updateActionButtons();
   waveButton.disabled = true;
 
@@ -797,44 +1091,56 @@ function updateCharacterAnimation(time) {
   }
 }
 
-function toggleIdleLoop() {
+function startIdleMode(nextMode) {
   if (idleEnabled) {
-    stopAllAnimations();
+    if (idleMode === nextMode) {
+      pendingIdleMode = null;
+      stopAllAnimations();
+      return;
+    }
+    poseAnimations.length = 0;
+    nextIdleMovementTime = 0;
+    resetIdleHeadYaw();
+    resetIdleMonitor();
+    idleMode = nextMode;
+    updateActionButtons();
     return;
   }
 
-  characterAnimation = null;
-  poseAnimations.length = 0;
-  nextIdleMovementTime = 0;
-  resetIdleHeadYaw();
-  smoothReturnTarget = null;
-  lastPoseUpdateTime = null;
-  idleEnabled = true;
-  updateActionButtons();
+  beginIdleMode(nextMode);
+}
+
+function toggleIdleLoop() {
+  startIdleMode("left_monitor_idle");
 }
 
 waveButton.addEventListener("click", beginCharacterGreeting);
 mouseOneButton.addEventListener("click", () => {
   idleEnabled = false;
+  pendingIdleMode = null;
   updateActionButtons();
   playMouseMovement(mouseMovementOne);
 });
 mouseTwoButton.addEventListener("click", () => {
   idleEnabled = false;
+  pendingIdleMode = null;
   updateActionButtons();
   playMouseMovement(mouseMovementTwo);
 });
 mouseThreeButton.addEventListener("click", () => {
   idleEnabled = false;
+  pendingIdleMode = null;
   updateActionButtons();
   playMouseMovement(mouseMovementThree);
 });
 mouseFourButton.addEventListener("click", () => {
   idleEnabled = false;
+  pendingIdleMode = null;
   updateActionButtons();
   playMouseMovement(mouseMovementFour);
 });
 idleToggleButton.addEventListener("click", toggleIdleLoop);
+rightMonitorIdleButton.addEventListener("click", () => startIdleMode("right_monitor_idle"));
 stopButton.addEventListener("click", stopAllAnimations);
 updateActionButtons();
 
@@ -843,6 +1149,8 @@ function animate(time) {
   if (idleEnabled && !characterAnimation) {
     queueNextIdleMovement(time);
   }
+  updateIdleMonitor(time);
+  updateRightMonitorIdle(time);
   updateCharacterAnimation(time);
   cameraRig.controls.update();
   renderer.render(scene, cameraRig.camera);

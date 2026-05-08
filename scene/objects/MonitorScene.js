@@ -101,26 +101,57 @@ export class MonitorScene {
   }
 
   buildCodeContent() {
-    const colors = [
-      0xe58f98, 0xb7d74f, 0xd89c38, 0x6c6f76,
-      0xaf71e6, 0xe58f98, 0xb7d74f, 0xd89c38,
-      0xaf71e6, 0xb7d74f, 0xd89c38, 0x6c6f76,
-      0xb7d74f, 0xaf71e6
+    const baseColors = [
+      0xd89c38, 0xb7d74f, 0xaf71e6, 0x8b9098,
+      0xe58f98, 0xd89c38, 0xb7d74f, 0xaf71e6,
+      0x8b9098, 0xd89c38, 0xb7d74f, 0xe58f98,
+      0xaf71e6, 0xb7d74f
     ];
-    const widths = [1.58, 1.32, 1.26, 0.68, 0.86, 1.44, 1.28, 2.46, 1.22, 1.1, 0.92, 0.84, 1.36, 0.98];
+    const baseWidths = [0.92, 1.18, 0.74, 0.52, 0.66, 1.08, 0.82, 1.26, 0.64, 1.02, 0.78, 0.56, 0.88, 0.68];
+    const indents = [0, 0.14, 0.28, 0.28, 0.14, 0, 0.16, 0.30, 0.30, 0.16, 0, 0.14, 0.28, 0];
+    const variant = Math.floor(this.config.codeVariant ?? 0);
+    const widthScale = this.config.codeWidthScale ?? 1;
+    const lineScroll = Math.floor(this.config.codeScroll ?? 0);
+    const activeLine = Math.floor(this.config.codeActiveLine ?? baseWidths.length - 1) % baseWidths.length;
+    const typingProgress = this.config.codeTypingProgress ?? 1;
+    const colors = baseColors.map((_, index) => baseColors[(index + variant) % baseColors.length]);
+    const widths = baseWidths.map((_, index) => baseWidths[(index + variant * 3) % baseWidths.length] * widthScale);
     const startX = -this.config.width * 0.34 + (this.config.codeX ?? 0);
     const startY = this.config.height * 0.26 + (this.config.codeY ?? 0);
+    let cursorX = startX;
+    let cursorY = startY;
 
     colors.forEach((color, index) => {
-      const line = createCodeLine(widths[index], color);
+      const sourceIndex = (index + lineScroll) % colors.length;
+      const wrappedOffset = index;
+      const isActiveLine = index === activeLine;
+      const width = widths[sourceIndex] * (isActiveLine ? Math.max(0.16, typingProgress) : 1);
+      const indent = indents[(sourceIndex + variant) % indents.length];
+      const line = createCodeLine(width, colors[sourceIndex]);
+      const lineX = startX + indent;
+      const lineY = startY - wrappedOffset * this.config.lineGap;
       line.name = `monitor-line-${index + 1}`;
       line.position.set(
-        startX + (line.geometry.parameters.width / 2),
-        startY - index * this.config.lineGap,
+        lineX + width / 2,
+        lineY,
         this.config.screenDepth * 0.7
       );
       this.content.add(line);
+
+      if (isActiveLine) {
+        cursorX = lineX + width + 0.04;
+        cursorY = lineY;
+      }
     });
+
+    if (this.config.codeCursorVisible) {
+      const cursor = new THREE.Mesh(
+        new THREE.BoxGeometry(0.025, 0.065, 0.01),
+        new THREE.MeshStandardMaterial({ color: 0xf4f0dc, roughness: 0.92 })
+      );
+      cursor.position.set(cursorX, cursorY, this.config.screenDepth * 0.72);
+      this.content.add(cursor);
+    }
   }
 
   buildUiContent() {
@@ -129,6 +160,7 @@ export class MonitorScene {
     const itemMaterial = new THREE.MeshStandardMaterial({ color: 0x3a3f45, roughness: 0.95 });
     const blueMaterial = new THREE.MeshStandardMaterial({ color: 0x6f9ad8, roughness: 0.92 });
     const redMaterial = new THREE.MeshStandardMaterial({ color: 0xd35c63, roughness: 0.92 });
+    const activeIconIndex = this.config.uiActiveIconIndex ?? 0;
 
     const sidebar = new THREE.Mesh(
       new THREE.BoxGeometry(this.config.width * (this.config.uiSidebarWidth ?? 0.06), this.config.height * 0.82, 0.01),
@@ -145,13 +177,19 @@ export class MonitorScene {
     this.content.add(panel);
 
     const topIconSize = this.config.uiTopIconWidth ?? 0.22;
-    const topIcon = new THREE.Mesh(new THREE.BoxGeometry(topIconSize, topIconSize, 0.01), blueMaterial);
+    const topIcon = new THREE.Mesh(
+      new THREE.BoxGeometry(topIconSize, topIconSize, 0.01),
+      activeIconIndex === 0 ? blueMaterial : itemMaterial
+    );
     topIcon.position.set(this.config.uiTopIconX ?? -this.config.width * 0.43, this.config.uiTopIconY ?? this.config.height * 0.28, this.config.screenDepth * 0.75);
     this.content.add(topIcon);
 
     for (let index = 0; index < 3; index += 1) {
       const iconSize = this.config.uiIconWidth ?? 0.18;
-      const icon = new THREE.Mesh(new THREE.BoxGeometry(iconSize, iconSize, 0.01), itemMaterial);
+      const icon = new THREE.Mesh(
+        new THREE.BoxGeometry(iconSize, iconSize, 0.01),
+        activeIconIndex === index + 1 ? blueMaterial : itemMaterial
+      );
       icon.position.set(
         this.config.uiIconX ?? -this.config.width * 0.43,
         (this.config.uiIconStartY ?? this.config.height * 0.02) - index * (this.config.uiIconGap ?? 0.30),
@@ -167,11 +205,13 @@ export class MonitorScene {
 
     const widthScale = this.config.uiLinesWidthScale ?? 1;
     const lineWidths = [0.52, 0.42, 0.48, 0.34, 0.44, 0.28, 0.38].map((value) => value * widthScale);
+    const lineScroll = this.config.uiLinesScroll ?? 0;
     lineWidths.forEach((width, index) => {
       const line = createCodeLine(width, 0xc0c4ca);
+      const wrappedOffset = (index + lineScroll) % lineWidths.length;
       line.position.set(
         (this.config.uiLinesX ?? -this.config.width * 0.07) + width * 0.5,
-        (this.config.uiLinesY ?? this.config.height * 0.31) - index * (this.config.uiLineGap ?? 0.12),
+        (this.config.uiLinesY ?? this.config.height * 0.31) - wrappedOffset * (this.config.uiLineGap ?? 0.12),
         this.config.screenDepth * 0.76
       );
       this.content.add(line);

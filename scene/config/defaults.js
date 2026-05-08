@@ -271,7 +271,13 @@ export const monitorOneConfig = {
   baseRotZ: 1,
   lineGap: 0.10,
   codeX: -0.05,
-  codeY: 0.13
+  codeY: 0.13,
+  codeScroll: 0,
+  codeWidthScale: 1,
+  codeVariant: 0,
+  codeActiveLine: 13,
+  codeTypingProgress: 0,
+  codeCursorVisible: true
 };
 
 export const monitorTwoConfig = {
@@ -309,6 +315,7 @@ export const monitorTwoConfig = {
   uiTopIconWidth: 0.21,
   uiTopIconX: -1.18,
   uiTopIconY: 0.63,
+  uiActiveIconIndex: 0,
   uiIconWidth: 0.18,
   uiIconX: -1.18,
   uiIconStartY: 0.30,
@@ -318,7 +325,8 @@ export const monitorTwoConfig = {
   uiLinesWidthScale: 1.02,
   uiLinesX: -0.77,
   uiLinesY: 0.73,
-  uiLineGap: 0.14
+  uiLineGap: 0.14,
+  uiLinesScroll: 0
 };
 
 export const floorPotConfig = {
