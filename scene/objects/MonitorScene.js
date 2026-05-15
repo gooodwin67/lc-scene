@@ -161,6 +161,8 @@ export class MonitorScene {
     const blueMaterial = new THREE.MeshStandardMaterial({ color: 0x6f9ad8, roughness: 0.92 });
     const redMaterial = new THREE.MeshStandardMaterial({ color: 0xd35c63, roughness: 0.92 });
     const activeIconIndex = this.config.uiActiveIconIndex ?? 0;
+    const dotIconIndex = this.config.uiDotIconIndex ?? activeIconIndex;
+    const iconPositions = [];
 
     const sidebar = new THREE.Mesh(
       new THREE.BoxGeometry(this.config.width * (this.config.uiSidebarWidth ?? 0.06), this.config.height * 0.82, 0.01),
@@ -183,6 +185,7 @@ export class MonitorScene {
     );
     topIcon.position.set(this.config.uiTopIconX ?? -this.config.width * 0.43, this.config.uiTopIconY ?? this.config.height * 0.28, this.config.screenDepth * 0.75);
     this.content.add(topIcon);
+    iconPositions.push({ x: topIcon.position.x, y: topIcon.position.y });
 
     for (let index = 0; index < 3; index += 1) {
       const iconSize = this.config.uiIconWidth ?? 0.18;
@@ -196,12 +199,20 @@ export class MonitorScene {
         this.config.screenDepth * 0.74
       );
       this.content.add(icon);
+      iconPositions.push({ x: icon.position.x, y: icon.position.y });
     }
 
-    const dot = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.01, 18), redMaterial);
-    dot.rotation.x = Math.PI / 2;
-    dot.position.set(this.config.uiDotX ?? -this.config.width * 0.36, this.config.uiDotY ?? this.config.height * 0.15, this.config.screenDepth * 0.76);
-    this.content.add(dot);
+    if (this.config.uiDotVisible ?? true) {
+      const dotTarget = iconPositions[THREE.MathUtils.clamp(Math.floor(dotIconIndex), 0, iconPositions.length - 1)];
+      const dot = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.01, 18), redMaterial);
+      dot.rotation.x = Math.PI / 2;
+      dot.position.set(
+        dotTarget.x + (this.config.uiDotX ?? 0),
+        dotTarget.y + (this.config.uiDotY ?? 0),
+        this.config.screenDepth * 0.76
+      );
+      this.content.add(dot);
+    }
 
     const widthScale = this.config.uiLinesWidthScale ?? 1;
     const lineWidths = [0.52, 0.42, 0.48, 0.34, 0.44, 0.28, 0.38].map((value) => value * widthScale);

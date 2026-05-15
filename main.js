@@ -26,7 +26,11 @@ import {
   createChairControls,
   createCharacterRotationControls,
   createCharacterOffsetControls,
-  createCharacterSizeControls
+  createCharacterSizeControls,
+  createCharacterHairControls,
+  createCharacterSleeveControls,
+  createCharacterColorControls,
+  createCharacterFootControls
 } from "./gui/panel.js";
 import {
   atmosphereConfig,
@@ -168,6 +172,10 @@ createPinsControls(allGuiFolder, board.getPinSections(), true);
 createCharacterOffsetControls(manFolder, characterState, () => character.apply(), false);
 createCharacterRotationControls(manFolder, characterState, () => character.apply(), true);
 createCharacterSizeControls(manFolder, characterState, () => character.apply(), true);
+createCharacterHairControls(controlPanel, characterState, () => character.apply(), false);
+createCharacterSleeveControls(controlPanel, characterState, () => character.apply(), false);
+createCharacterColorControls(controlPanel, characterState, () => character.apply(), false);
+createCharacterFootControls(controlPanel, characterState, () => character.apply(), false);
 
 const copyGuiButton = document.createElement("button");
 copyGuiButton.className = "panel-button";
@@ -258,11 +266,13 @@ let leftMonitorLineScrollTarget = 0;
 let leftMonitorLineScrollStartTime = 0;
 let leftMonitorLineScrollDuration = 500;
 let leftMonitorLineScrollHoldUntil = 0;
+let leftMonitorPendingIconIndex = null;
+let leftMonitorPendingIconStartTime = 0;
 
 const mouseMovementOne = {
   mouse: {
-    x: 1.975,
-    z: 2.515
+    x: 1.815,
+    z: 2.5
   },
   character: {
     leftShoulderX: -78.625,
@@ -279,8 +289,8 @@ const mouseMovementOne = {
 
 const mouseMovementTwo = {
   mouse: {
-    x: 2.06,
-    z: 2.5425
+    x: 1.90,
+    z: 2.5275
   },
   character: {
     leftShoulderX: -80.25,
@@ -297,8 +307,8 @@ const mouseMovementTwo = {
 
 const mouseMovementThree = {
   mouse: {
-    x: 2.145,
-    z: 2.515
+    x: 1.985,
+    z: 2.5
   },
   character: {
     leftShoulderX: -82.375,
@@ -315,8 +325,8 @@ const mouseMovementThree = {
 
 const mouseMovementFour = {
   mouse: {
-    x: 2.06,
-    z: 2.4875
+    x: 1.90,
+    z: 2.4725
   },
   character: {
     leftShoulderX: -81.25,
@@ -376,10 +386,18 @@ function formatDiffValue(value) {
   return String(value);
 }
 
+function shouldSkipGuiDiffEntry(prefix) {
+  return prefix === "codeCursorVisible";
+}
+
 function collectDiffEntries(current, base, prefix = "") {
   if (current && typeof current === "object" && !Array.isArray(current)) {
     const keys = [...new Set([...Object.keys(base ?? {}), ...Object.keys(current)])];
     return keys.flatMap((key) => collectDiffEntries(current[key], base?.[key], prefix ? `${prefix}.${key}` : key));
+  }
+
+  if (shouldSkipGuiDiffEntry(prefix)) {
+    return [];
   }
 
   if (current !== base) {
@@ -727,13 +745,38 @@ function resetIdleMonitor() {
   leftMonitorLineScrollStartTime = 0;
   leftMonitorLineScrollDuration = 500;
   leftMonitorLineScrollHoldUntil = 0;
+  leftMonitorPendingIconIndex = null;
+  leftMonitorPendingIconStartTime = 0;
 }
 
 function pickIdleMonitorTarget(time) {
-  monitorTwoState.uiActiveIconIndex = Math.floor(Math.random() * 4);
+  const currentIndex = monitorTwoState.uiActiveIconIndex ?? 0;
+  const candidates = [0, 1, 2, 3].filter((index) => index !== currentIndex);
+  leftMonitorPendingIconIndex = candidates[Math.floor(Math.random() * candidates.length)];
+  leftMonitorPendingIconStartTime = time;
+  monitorTwoState.uiDotIconIndex = leftMonitorPendingIconIndex;
+  monitorTwoState.uiDotVisible = true;
   monitorTwoState.uiLinesWidthScale = 0.72 + Math.random() * 0.66;
 
-  nextIdleMonitorActionTime = time + 2600 + Math.random() * 2600;
+  nextIdleMonitorActionTime = Infinity;
+}
+
+function updateLeftMonitorIconSelection(time) {
+  if (leftMonitorPendingIconIndex === null) {
+    return;
+  }
+
+  monitorTwoState.uiDotIconIndex = leftMonitorPendingIconIndex;
+  monitorTwoState.uiDotVisible = true;
+
+  if (time - leftMonitorPendingIconStartTime < 1000) {
+    return;
+  }
+
+  monitorTwoState.uiActiveIconIndex = leftMonitorPendingIconIndex;
+  leftMonitorPendingIconIndex = null;
+  leftMonitorPendingIconStartTime = 0;
+  nextIdleMonitorActionTime = time + 1300 + Math.random() * 1800;
 }
 
 function updateLeftMonitorLineScroll(time) {
@@ -775,6 +818,7 @@ function updateIdleMonitor(time) {
 
   if (idleEnabled && idleMode === "left_monitor_idle") {
     monitorTwoState.uiLinesScroll = updateLeftMonitorLineScroll(time);
+    updateLeftMonitorIconSelection(time);
   }
 
   smoothValuesToTarget(monitorTwoState, {
@@ -789,8 +833,12 @@ function updateIdleMonitor(time) {
   }, alpha);
   if (!idleEnabled || idleMode !== "left_monitor_idle") {
     monitorTwoState.uiActiveIconIndex = leftMonitorIdleBaseState.uiActiveIconIndex;
+    monitorTwoState.uiDotIconIndex = leftMonitorIdleBaseState.uiDotIconIndex;
+    monitorTwoState.uiDotVisible = leftMonitorIdleBaseState.uiDotVisible;
     monitorTwoState.uiLinesWidthScale = leftMonitorIdleBaseState.uiLinesWidthScale;
     monitorTwoState.uiLinesScroll = leftMonitorIdleBaseState.uiLinesScroll;
+    leftMonitorPendingIconIndex = null;
+    leftMonitorPendingIconStartTime = 0;
   }
   monitorTwo.apply();
 }
@@ -985,14 +1033,26 @@ function beginCharacterGreeting() {
     torsoYaw: characterState.torsoYaw,
     headYaw: characterState.headYaw,
     leftShoulderZ: characterState.leftShoulderZ,
-    leftElbowX: characterState.leftElbowX
+    leftElbowX: characterState.leftElbowX,
+    rightShoulderX: characterState.rightShoulderX,
+    rightShoulderZ: characterState.rightShoulderZ,
+    rightElbowX: characterState.rightElbowX,
+    leftHipY: characterState.leftHipY,
+    leftHipZ: characterState.leftHipZ,
+    rightHipZ: characterState.rightHipZ
   };
 
   const phaseOneTarget = {
     torsoYaw: -60,
     headYaw: -65,
     leftShoulderZ: 149,
-    leftElbowX: 1.5
+    leftElbowX: 1.5,
+    rightShoulderX: -126,
+    rightShoulderZ: -20,
+    rightElbowX: 24,
+    leftHipY: 7,
+    leftHipZ: -56.5,
+    rightHipZ: -28
   };
 
   const waveValues = [1.5, 22, 1.5, 22, 1.5, 22];
@@ -1020,17 +1080,27 @@ function updateCharacterAnimation(time) {
   const elapsed = time - characterAnimation.startTime;
 
   if (characterAnimation.stage === "turn") {
-    const duration = 1200;
-    const t = Math.min(1, elapsed / duration);
-    const eased = easeOutCubic(t);
+    const rightDuration = 900;
+    const delayedDuration = 900;
+    const delayedStart = rightDuration * 0.1;
+    const rightT = Math.min(1, elapsed / rightDuration);
+    const delayedT = Math.min(1, Math.max(0, elapsed - delayedStart) / delayedDuration);
+    const rightEased = easeOutCubic(rightT);
+    const delayedEased = easeOutCubic(delayedT);
     setCharacterPoseFromMap({
-      torsoYaw: lerp(characterAnimation.startPose.torsoYaw, characterAnimation.phaseOneTarget.torsoYaw, eased),
-      headYaw: lerp(characterAnimation.startPose.headYaw, characterAnimation.phaseOneTarget.headYaw, eased),
-      leftShoulderZ: lerp(characterAnimation.startPose.leftShoulderZ, characterAnimation.phaseOneTarget.leftShoulderZ, eased),
-      leftElbowX: lerp(characterAnimation.startPose.leftElbowX, characterAnimation.phaseOneTarget.leftElbowX, eased)
+      rightHipZ: lerp(characterAnimation.startPose.rightHipZ, characterAnimation.phaseOneTarget.rightHipZ, rightEased),
+      torsoYaw: lerp(characterAnimation.startPose.torsoYaw, characterAnimation.phaseOneTarget.torsoYaw, delayedEased),
+      headYaw: lerp(characterAnimation.startPose.headYaw, characterAnimation.phaseOneTarget.headYaw, delayedEased),
+      leftShoulderZ: lerp(characterAnimation.startPose.leftShoulderZ, characterAnimation.phaseOneTarget.leftShoulderZ, delayedEased),
+      leftElbowX: lerp(characterAnimation.startPose.leftElbowX, characterAnimation.phaseOneTarget.leftElbowX, delayedEased),
+      rightShoulderX: lerp(characterAnimation.startPose.rightShoulderX, characterAnimation.phaseOneTarget.rightShoulderX, delayedEased),
+      rightShoulderZ: lerp(characterAnimation.startPose.rightShoulderZ, characterAnimation.phaseOneTarget.rightShoulderZ, delayedEased),
+      rightElbowX: lerp(characterAnimation.startPose.rightElbowX, characterAnimation.phaseOneTarget.rightElbowX, delayedEased),
+      leftHipY: lerp(characterAnimation.startPose.leftHipY, characterAnimation.phaseOneTarget.leftHipY, delayedEased),
+      leftHipZ: lerp(characterAnimation.startPose.leftHipZ, characterAnimation.phaseOneTarget.leftHipZ, delayedEased)
     });
 
-    if (t >= 1) {
+    if (rightT >= 1 && delayedT >= 1) {
       characterAnimation.stage = "wave";
       characterAnimation.startTime = time;
       characterAnimation.waveIndex = 0;
@@ -1040,7 +1110,7 @@ function updateCharacterAnimation(time) {
   }
 
   if (characterAnimation.stage === "wave") {
-    const duration = 240;
+    const duration = 200;
     const t = Math.min(1, elapsed / duration);
     const eased = easeInOutSine(t);
     const target = characterAnimation.waveValues[characterAnimation.waveIndex];
@@ -1048,7 +1118,13 @@ function updateCharacterAnimation(time) {
       torsoYaw: characterAnimation.phaseOneTarget.torsoYaw,
       headYaw: characterAnimation.phaseOneTarget.headYaw,
       leftShoulderZ: characterAnimation.phaseOneTarget.leftShoulderZ,
-      leftElbowX: lerp(characterAnimation.waveStartValue, target, eased)
+      leftElbowX: lerp(characterAnimation.waveStartValue, target, eased),
+      rightShoulderX: characterAnimation.phaseOneTarget.rightShoulderX,
+      rightShoulderZ: characterAnimation.phaseOneTarget.rightShoulderZ,
+      rightElbowX: characterAnimation.phaseOneTarget.rightElbowX,
+      leftHipY: characterAnimation.phaseOneTarget.leftHipY,
+      leftHipZ: characterAnimation.phaseOneTarget.leftHipZ,
+      rightHipZ: characterAnimation.phaseOneTarget.rightHipZ
     });
 
     if (t >= 1) {
@@ -1057,22 +1133,52 @@ function updateCharacterAnimation(time) {
       characterAnimation.startTime = time;
 
       if (characterAnimation.waveIndex >= characterAnimation.waveValues.length) {
-        characterAnimation.stage = "return";
+        characterAnimation.stage = "right-leg-out";
         characterAnimation.startTime = time;
       }
     }
     return;
   }
 
-  if (characterAnimation.stage === "return") {
-    const duration = 900;
+  if (characterAnimation.stage === "right-leg-out") {
+    const duration = 730;
     const t = Math.min(1, elapsed / duration);
     const eased = easeOutCubic(t);
     setCharacterPoseFromMap({
       torsoYaw: lerp(characterAnimation.phaseOneTarget.torsoYaw, characterDefaultPose.torsoYaw, eased),
       headYaw: lerp(characterAnimation.phaseOneTarget.headYaw, characterDefaultPose.headYaw, eased),
       leftShoulderZ: lerp(characterAnimation.phaseOneTarget.leftShoulderZ, characterDefaultPose.leftShoulderZ, eased),
-      leftElbowX: lerp(characterAnimation.waveStartValue, characterDefaultPose.leftElbowX, eased)
+      leftElbowX: lerp(characterAnimation.waveStartValue, characterDefaultPose.leftElbowX, eased),
+      rightShoulderX: lerp(characterAnimation.phaseOneTarget.rightShoulderX, characterDefaultPose.rightShoulderX, eased),
+      rightShoulderZ: lerp(characterAnimation.phaseOneTarget.rightShoulderZ, characterDefaultPose.rightShoulderZ, eased),
+      rightElbowX: lerp(characterAnimation.phaseOneTarget.rightElbowX, characterDefaultPose.rightElbowX, eased),
+      leftHipY: characterAnimation.phaseOneTarget.leftHipY,
+      leftHipZ: characterAnimation.phaseOneTarget.leftHipZ,
+      rightHipZ: lerp(characterAnimation.phaseOneTarget.rightHipZ, characterDefaultPose.rightHipZ, eased)
+    });
+
+    if (t >= 1) {
+      characterAnimation.stage = "left-leg-out";
+      characterAnimation.startTime = time;
+    }
+    return;
+  }
+
+  if (characterAnimation.stage === "left-leg-out") {
+    const duration = 540;
+    const t = Math.min(1, elapsed / duration);
+    const eased = easeOutCubic(t);
+    setCharacterPoseFromMap({
+      torsoYaw: characterDefaultPose.torsoYaw,
+      headYaw: characterDefaultPose.headYaw,
+      leftShoulderZ: characterDefaultPose.leftShoulderZ,
+      leftElbowX: characterDefaultPose.leftElbowX,
+      rightShoulderX: characterDefaultPose.rightShoulderX,
+      rightShoulderZ: characterDefaultPose.rightShoulderZ,
+      rightElbowX: characterDefaultPose.rightElbowX,
+      leftHipY: lerp(characterAnimation.phaseOneTarget.leftHipY, characterDefaultPose.leftHipY, eased),
+      leftHipZ: lerp(characterAnimation.phaseOneTarget.leftHipZ, characterDefaultPose.leftHipZ, eased),
+      rightHipZ: characterDefaultPose.rightHipZ
     });
 
     if (t >= 1) {
@@ -1080,7 +1186,13 @@ function updateCharacterAnimation(time) {
         torsoYaw: characterDefaultPose.torsoYaw,
         headYaw: characterDefaultPose.headYaw,
         leftShoulderZ: characterDefaultPose.leftShoulderZ,
-        leftElbowX: characterDefaultPose.leftElbowX
+        leftElbowX: characterDefaultPose.leftElbowX,
+        rightShoulderX: characterDefaultPose.rightShoulderX,
+        rightShoulderZ: characterDefaultPose.rightShoulderZ,
+        rightElbowX: characterDefaultPose.rightElbowX,
+        leftHipY: characterDefaultPose.leftHipY,
+        leftHipZ: characterDefaultPose.leftHipZ,
+        rightHipZ: characterDefaultPose.rightHipZ
       });
       characterAnimation = null;
       waveButton.disabled = false;

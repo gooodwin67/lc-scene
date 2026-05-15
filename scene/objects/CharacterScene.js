@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { radians } from "../utils/geometry.js";
+import { radians, roundedRectShape } from "../utils/geometry.js";
 
 function applyShadow(mesh) {
   mesh.castShadow = true;
@@ -15,8 +15,56 @@ function createSphere(radius, material) {
   return applyShadow(new THREE.Mesh(new THREE.SphereGeometry(radius, 24, 24), material));
 }
 
+function createUpperHemisphere(radius, material) {
+  return applyShadow(new THREE.Mesh(
+    new THREE.SphereGeometry(radius, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2),
+    material
+  ));
+}
+
 function createBox(width, height, depth, material) {
   return applyShadow(new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), material));
+}
+
+function createRoundedBox(width, height, depth, radius, material) {
+  const geometry = new THREE.ExtrudeGeometry(roundedRectShape(width, height, radius), {
+    depth,
+    bevelEnabled: false,
+    curveSegments: 16
+  });
+  geometry.center();
+  return applyShadow(new THREE.Mesh(geometry, material));
+}
+
+function seededRandom(index, salt) {
+  const value = Math.sin(index * 12.9898 + salt * 78.233) * 43758.5453;
+  return value - Math.floor(value);
+}
+
+function createHairStripTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 16;
+  canvas.height = 64;
+
+  const context = canvas.getContext("2d");
+  const gradient = context.createLinearGradient(0, 0, 0, canvas.height);
+  gradient.addColorStop(0, "rgba(255, 255, 255, 0)");
+  gradient.addColorStop(0.16, "rgba(255, 255, 255, 0.85)");
+  gradient.addColorStop(0.84, "rgba(255, 255, 255, 0.85)");
+  gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
+  context.fillStyle = gradient;
+  context.beginPath();
+  context.moveTo(8, 0);
+  context.quadraticCurveTo(14, 0, 14, 8);
+  context.lineTo(14, 56);
+  context.quadraticCurveTo(14, 64, 8, 64);
+  context.quadraticCurveTo(2, 64, 2, 56);
+  context.lineTo(2, 8);
+  context.quadraticCurveTo(2, 0, 8, 0);
+  context.fill();
+
+  const texture = new THREE.CanvasTexture(canvas);
+  return texture;
 }
 
 export class CharacterScene {
@@ -24,9 +72,13 @@ export class CharacterScene {
     this.config = config;
 
     this.skinMaterial = new THREE.MeshStandardMaterial({ color: 0xf7cdaa, roughness: 0.95 });
-    this.hairMaterial = new THREE.MeshStandardMaterial({ color: 0x7a4c35, roughness: 0.9 });
-    this.shirtMaterial = new THREE.MeshStandardMaterial({ color: 0x3e4147, roughness: 0.92 });
-    this.pantsMaterial = new THREE.MeshStandardMaterial({ color: 0x26282d, roughness: 0.94 });
+    this.hairCapMaterial = new THREE.MeshStandardMaterial({ color: 0x12151c, roughness: 0.9 });
+    this.hairStripTexture = createHairStripTexture();
+    this.hairStripObject = new THREE.Object3D();
+    this.shirtMaterial = new THREE.MeshStandardMaterial({ color: 0x3a4d50, roughness: 0.92 });
+    this.sleeveMaterial = new THREE.MeshStandardMaterial({ color: 0x3a4d50, roughness: 0.92 });
+    this.pelvisMaterial = new THREE.MeshStandardMaterial({ color: 0x262537, roughness: 0.94 });
+    this.pantsMaterial = new THREE.MeshStandardMaterial({ color: 0x19182b, roughness: 0.94 });
     this.sockMaterial = new THREE.MeshStandardMaterial({ color: 0xf7f7f6, roughness: 0.96 });
     this.shoeMaterial = new THREE.MeshStandardMaterial({ color: 0x3c414a, roughness: 0.9 });
     this.shoeToeMaterial = new THREE.MeshStandardMaterial({ color: 0xf6f6f6, roughness: 0.95 });
@@ -50,7 +102,7 @@ export class CharacterScene {
     this.torso.position.y = 0.6;
     this.torsoPivot.add(this.torso);
 
-    this.pelvis = createSphere(0.32, this.shirtMaterial);
+    this.pelvis = createSphere(0.32, this.pelvisMaterial);
     this.pelvis.scale.set(1.1, 0.75, 0.95);
     this.pelvis.position.y = 0.08;
     this.group.add(this.pelvis);
@@ -63,20 +115,17 @@ export class CharacterScene {
     this.head.scale.set(1.08, 1.0, 1.03);
     this.headPivot.add(this.head);
 
-    this.hair = createSphere(0.6, this.hairMaterial);
-    this.hair.position.set(0, 0.06, -0.06);
-    this.hair.scale.set(1.06, 1.0, 1.04);
-    this.headPivot.add(this.hair);
+    this.hairGroup = new THREE.Group();
+    this.headPivot.add(this.hairGroup);
 
-    this.fringe = createSphere(0.34, this.hairMaterial);
-    this.fringe.position.set(0.16, 0.28, 0.3);
-    this.fringe.scale.set(1.55, 0.62, 1.05);
-    this.headPivot.add(this.fringe);
+    this.hairCap = createUpperHemisphere(0.55, this.hairCapMaterial);
+    this.hairGroup.add(this.hairCap);
 
-    this.sideHair = createSphere(0.17, this.hairMaterial);
-    this.sideHair.position.set(0.31, -0.03, 0.23);
-    this.sideHair.scale.set(1, 1.45, 0.75);
-    this.headPivot.add(this.sideHair);
+    this.hair = this.createHairStrips(45000);
+    this.hairGroup.add(this.hair);
+
+    this.fringe = this.createHairStrips(360);
+    this.hairGroup.add(this.fringe);
 
     this.earLeft = createSphere(0.12, this.skinMaterial);
     this.earLeft.position.set(-0.5, -0.02, 0.04);
@@ -129,28 +178,33 @@ export class CharacterScene {
     shoulder.position.set(side * 0.48, 1.02, 0.02);
     this.torsoPivot.add(shoulder);
 
-    const upperArm = createCapsule(0.11, 0.46, this.skinMaterial);
-    upperArm.position.y = -0.34;
+    const upperArm = createCapsule(0.115, 0.5, this.skinMaterial);
+    upperArm.position.y = -0.32;
     shoulder.add(upperArm);
 
+    const sleeve = createCapsule(0.14, 0.56, this.sleeveMaterial);
+    sleeve.position.y = -0.33;
+    sleeve.scale.set(1.08, 1, 1.02);
+    shoulder.add(sleeve);
+
     const elbow = new THREE.Group();
-    elbow.position.y = -0.62;
+    elbow.position.y = -0.56;
     shoulder.add(elbow);
 
-    const lowerArm = createCapsule(0.10, 0.42, this.skinMaterial);
-    lowerArm.position.y = -0.30;
+    const lowerArm = createCapsule(0.105, 0.5, this.skinMaterial);
+    lowerArm.position.y = -0.26;
     elbow.add(lowerArm);
 
     const wrist = new THREE.Group();
-    wrist.position.y = -0.60;
+    wrist.position.y = -0.52;
     elbow.add(wrist);
 
-    const hand = createSphere(0.11, this.skinMaterial);
-    hand.position.y = 0;
-    hand.scale.set(0.95, 1.12, 0.75);
+    const hand = createCapsule(0.105, 0.08, this.skinMaterial);
+    hand.position.y = -0.055;
+    hand.scale.set(1.02, 0.95, 0.76);
     wrist.add(hand);
 
-    return { shoulder, elbow, wrist, upperArm, lowerArm, hand };
+    return { shoulder, elbow, wrist, upperArm, sleeve, lowerArm, hand };
   }
 
   buildLeg(side) {
@@ -178,15 +232,19 @@ export class CharacterScene {
     ankle.position.y = -0.76;
     knee.add(ankle);
 
-    const shoe = createBox(0.28, 0.14, 0.5, this.shoeMaterial);
-    shoe.position.set(0, -0.05, 0.16);
+    const shoe = new THREE.Group();
+    const sole = createRoundedBox(0.34, 0.045, 0.38, 0.035, this.shoeMaterial);
+    shoe.add(sole);
+
+    const upperShoe = createSphere(0.18, this.shoeMaterial);
+    shoe.add(upperShoe);
+
     ankle.add(shoe);
 
-    const toe = createBox(0.18, 0.12, 0.18, this.shoeToeMaterial);
-    toe.position.set(0, -0.03, 0.32);
+    const toe = createSphere(0.13, this.shoeToeMaterial);
     ankle.add(toe);
 
-    return { hip, knee, ankle, upperLeg, lowerLeg, sock, shoe, toe };
+    return { hip, knee, ankle, upperLeg, lowerLeg, sock, shoe, sole, upperShoe, toe };
   }
 
   applyEyePupils() {
@@ -201,9 +259,33 @@ export class CharacterScene {
     this.rightPupil.position.y = offsetY;
   }
 
+  createHairStrips(maxCount) {
+    const geometry = new THREE.PlaneGeometry(0.03, 0.12);
+    const material = new THREE.MeshBasicMaterial({
+      color: 0x6a3e2b,
+      map: this.hairStripTexture,
+      alphaTest: 0.08,
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide
+    });
+
+    const strips = new THREE.InstancedMesh(geometry, material, maxCount);
+    strips.frustumCulled = false;
+    return strips;
+  }
+
   apply() {
     const sit = THREE.MathUtils.clamp(this.config.sitAmount, 0, 1);
     const bodyScale = 1.5;
+
+    this.shirtMaterial.color.set(this.config.shirtColor ?? 0x3a4d50);
+    this.sleeveMaterial.color.set(this.config.sleeveColor ?? 0x3a4d50);
+    this.pelvisMaterial.color.set(this.config.pelvisColor ?? 0x262537);
+    this.pantsMaterial.color.set(this.config.pantsColor ?? 0x19182b);
+    this.sockMaterial.color.set(this.config.sockColor ?? 0xf7f7f6);
+    this.shoeMaterial.color.set(this.config.shoeColor ?? 0x3c414a);
+    this.shoeToeMaterial.color.set(this.config.shoeToeColor ?? 0xf6f6f6);
 
     this.group.position.set(
       this.config.x + this.config.sitOffsetX * sit,
@@ -226,9 +308,9 @@ export class CharacterScene {
     );
 
     this.pelvis.scale.set(
-      1.1 * bodyScale * this.config.pelvisScaleX,
-      0.75 * bodyScale * this.config.pelvisScaleY,
-      0.95 * bodyScale * this.config.pelvisScaleZ
+      1.18 * bodyScale * this.config.pelvisScaleX,
+      0.62 * bodyScale * this.config.pelvisScaleY,
+      0.92 * bodyScale * this.config.pelvisScaleZ
     );
     this.pelvis.position.set(
       this.config.pelvisOffsetX,
@@ -242,14 +324,7 @@ export class CharacterScene {
       this.config.headOffsetZ
     );
     this.head.scale.set(1.08 * this.config.headScaleX, 1.0 * this.config.headScaleY, 1.03 * this.config.headScaleZ);
-    this.hair.scale.set(1.06 * this.config.hairScaleX, 1.0 * this.config.hairScaleY, 1.04 * this.config.hairScaleZ);
-    this.hair.position.set(
-      this.config.hairOffsetX,
-      0.06 + this.config.hairOffsetY,
-      -0.06 + this.config.hairOffsetZ
-    );
-    this.fringe.scale.set(1.55 * this.config.fringeScaleX, 0.62 * this.config.fringeScaleY, 1.05 * this.config.fringeScaleZ);
-    this.sideHair.scale.set(1.0 * this.config.sideHairScaleX, 1.45 * this.config.sideHairScaleY, 0.75 * this.config.sideHairScaleZ);
+    this.applyHair();
     this.earLeft.scale.set(this.config.earScaleX, this.config.earScaleY, this.config.earScaleZ);
     this.earRight.scale.set(this.config.earScaleX, this.config.earScaleY, this.config.earScaleZ);
     this.leftEyeWhite.scale.set(0.92 * this.config.eyeScaleX, 1.08 * this.config.eyeScaleY, 0.45 * this.config.eyeScaleZ);
@@ -299,6 +374,7 @@ export class CharacterScene {
     );
     this.leftArm.shoulder.scale.set(bodyScale, bodyScale, bodyScale);
     this.leftArm.upperArm.scale.set(this.config.upperArmScaleX, this.config.upperArmScaleY, this.config.upperArmScaleZ);
+    this.applySleeve(this.leftArm.sleeve);
     this.leftArm.lowerArm.scale.set(this.config.lowerArmScaleX, this.config.lowerArmScaleY, this.config.lowerArmScaleZ);
     this.leftArm.hand.scale.set(0.95 * this.config.handScaleX, 1.12 * this.config.handScaleY, 0.75 * this.config.handScaleZ);
     this.rightArm.shoulder.position.set(
@@ -308,6 +384,7 @@ export class CharacterScene {
     );
     this.rightArm.shoulder.scale.set(bodyScale, bodyScale, bodyScale);
     this.rightArm.upperArm.scale.set(this.config.upperArmScaleX, this.config.upperArmScaleY, this.config.upperArmScaleZ);
+    this.applySleeve(this.rightArm.sleeve);
     this.rightArm.lowerArm.scale.set(this.config.lowerArmScaleX, this.config.lowerArmScaleY, this.config.lowerArmScaleZ);
     this.rightArm.hand.scale.set(0.95 * this.config.handScaleX, 1.12 * this.config.handScaleY, 0.75 * this.config.handScaleZ);
 
@@ -330,9 +407,7 @@ export class CharacterScene {
     this.leftLeg.hip.scale.set(bodyScale, bodyScale, bodyScale);
     this.leftLeg.upperLeg.scale.set(this.config.upperLegScaleX, this.config.upperLegScaleY, this.config.upperLegScaleZ);
     this.leftLeg.lowerLeg.scale.set(this.config.lowerLegScaleX, this.config.lowerLegScaleY, this.config.lowerLegScaleZ);
-    this.leftLeg.sock.scale.set(this.config.sockScaleX, this.config.sockScaleY, this.config.sockScaleZ);
-    this.leftLeg.shoe.scale.set(this.config.shoeScaleX, this.config.shoeScaleY, this.config.shoeScaleZ);
-    this.leftLeg.toe.scale.set(this.config.toeScaleX, this.config.toeScaleY, this.config.toeScaleZ);
+    this.applyFoot(this.leftLeg);
     this.rightLeg.hip.position.set(
       0.2 * bodyScale + this.config.rightHipOffsetX,
       -0.08 * bodyScale + this.config.rightHipOffsetY,
@@ -341,9 +416,7 @@ export class CharacterScene {
     this.rightLeg.hip.scale.set(bodyScale, bodyScale, bodyScale);
     this.rightLeg.upperLeg.scale.set(this.config.upperLegScaleX, this.config.upperLegScaleY, this.config.upperLegScaleZ);
     this.rightLeg.lowerLeg.scale.set(this.config.lowerLegScaleX, this.config.lowerLegScaleY, this.config.lowerLegScaleZ);
-    this.rightLeg.sock.scale.set(this.config.sockScaleX, this.config.sockScaleY, this.config.sockScaleZ);
-    this.rightLeg.shoe.scale.set(this.config.shoeScaleX, this.config.shoeScaleY, this.config.shoeScaleZ);
-    this.rightLeg.toe.scale.set(this.config.toeScaleX, this.config.toeScaleY, this.config.toeScaleZ);
+    this.applyFoot(this.rightLeg);
 
     this.leftLeg.knee.position.set(
       this.config.leftKneeOffsetX,
@@ -410,13 +483,136 @@ export class CharacterScene {
     this.leftLeg.hip.rotation.z = radians(this.config.leftHipZ);
     this.leftLeg.knee.rotation.x = radians(kneeBase + this.config.leftKneeX);
     this.leftLeg.ankle.rotation.x = radians(ankleBase + this.config.leftAnkleX);
+    this.leftLeg.ankle.rotation.y = radians(this.config.leftAnkleY);
+    this.leftLeg.ankle.rotation.z = radians(this.config.leftAnkleZ);
 
     this.rightLeg.hip.rotation.x = radians(hipBase + this.config.rightHipX);
     this.rightLeg.hip.rotation.y = radians(this.config.rightHipY);
     this.rightLeg.hip.rotation.z = radians(this.config.rightHipZ);
     this.rightLeg.knee.rotation.x = radians(kneeBase + this.config.rightKneeX);
     this.rightLeg.ankle.rotation.x = radians(ankleBase + this.config.rightAnkleX);
+    this.rightLeg.ankle.rotation.y = radians(this.config.rightAnkleY);
+    this.rightLeg.ankle.rotation.z = radians(this.config.rightAnkleZ);
 
     this.applyEyePupils();
+  }
+
+  applySleeve(sleeve) {
+    const length = THREE.MathUtils.clamp(this.config.sleeveLength ?? 1, 0.4, 1.6);
+    const volume = THREE.MathUtils.clamp(this.config.sleeveVolume ?? 1, 0.6, 1.8);
+
+    sleeve.position.y = 0.09 - 0.42 * length;
+    sleeve.scale.set(1.08 * volume, length, 1.02 * volume);
+  }
+
+  applyHair() {
+    this.hairGroup.position.set(0, 0, 0);
+    this.hairGroup.rotation.set(0, 0, 0);
+    this.hairGroup.scale.set(1, 1, 1);
+    this.hairCapMaterial.color.set(this.config.hairColor ?? 0x12151c);
+
+    this.hairCap.position.set(
+      this.config.hairCapOffsetX,
+      this.config.hairCapOffsetY,
+      this.config.hairCapOffsetZ
+    );
+    this.hairCap.rotation.set(
+      radians(this.config.hairCapRotX),
+      radians(this.config.hairCapRotY),
+      radians(this.config.hairCapRotZ)
+    );
+    this.hairCap.scale.set(
+      1.08 * this.config.headScaleX * this.config.hairCapScaleX,
+      1.0 * this.config.headScaleY * this.config.hairCapScaleY,
+      1.03 * this.config.headScaleZ * this.config.hairCapScaleZ
+    );
+
+    this.updateHairCloud(this.hair, "hair", (index) => {
+      const angle = seededRandom(index, 1) * Math.PI * 2;
+      const radius = Math.sqrt(seededRandom(index, 2));
+      const x = Math.cos(angle) * 0.49 * radius;
+      const z = -0.07 + Math.sin(angle) * 0.43 * radius;
+      const lift = Math.sqrt(Math.max(0, 1 - (x / 0.54) ** 2 - ((z + 0.06) / 0.48) ** 2));
+      const jitter = (seededRandom(index, 3) - 0.5) * this.config.hairScatter;
+      return [x + jitter * 0.4, 0.08 + lift * 0.44 + jitter, z + jitter * 0.5];
+    });
+
+    this.updateHairCloud(this.fringe, "fringe", (index) => {
+      const u = seededRandom(index, 11);
+      const v = seededRandom(index, 12);
+      const x = -0.40 + u * 0.74;
+      const curve = Math.sin(u * Math.PI);
+      const y = 0.34 - v * 0.23 - curve * 0.07;
+      const z = 0.33 + v * 0.11 + curve * 0.04;
+      return [x, y, z];
+    });
+
+  }
+
+  updateHairCloud(strips, prefix, getPoint) {
+    const maxCount = strips.instanceMatrix.count;
+    const count = Math.min(maxCount, Math.max(0, Math.round(this.config[`${prefix}Count`])));
+    const object = this.hairStripObject;
+    const particleSize = prefix === "hair"
+      ? this.config.hairParticleSize
+      : this.config[`${prefix}ParticleSize`] * this.config.hairParticleSize;
+
+    for (let index = 0; index < count; index += 1) {
+      const [x, y, z] = getPoint(index);
+      const lean = (seededRandom(index, 44) - 0.5) * 0.9;
+      const twist = (seededRandom(index, 45) - 0.5) * Math.PI;
+      const length = particleSize * (0.85 + seededRandom(index, 46) * 0.55);
+      const width = particleSize * (0.16 + seededRandom(index, 47) * 0.08);
+
+      object.position.set(x, y, z);
+      object.rotation.set(lean, twist, seededRandom(index, 48) * Math.PI);
+      object.scale.set(width, length, 1);
+      object.updateMatrix();
+      strips.setMatrixAt(index, object.matrix);
+    }
+
+    strips.count = count;
+    strips.instanceMatrix.needsUpdate = true;
+    strips.material.color.set(this.config.hairColor ?? 0x6a3e2b);
+    strips.material.opacity = prefix === "hair"
+      ? this.config.hairParticleOpacity
+      : this.config[`${prefix}ParticleOpacity`];
+    strips.position.set(
+      this.config[`${prefix}OffsetX`],
+      this.config[`${prefix}OffsetY`],
+      this.config[`${prefix}OffsetZ`]
+    );
+    strips.rotation.set(
+      radians(this.config[`${prefix}RotX`]),
+      radians(this.config[`${prefix}RotY`]),
+      radians(this.config[`${prefix}RotZ`])
+    );
+    strips.scale.set(
+      this.config[`${prefix}ScaleX`],
+      this.config[`${prefix}ScaleY`],
+      this.config[`${prefix}ScaleZ`]
+    );
+  }
+
+  applyFoot(leg) {
+    leg.sock.position.set(this.config.sockOffsetX, -0.77 + this.config.sockOffsetY, this.config.sockOffsetZ);
+    leg.sock.rotation.set(radians(this.config.sockRotX), radians(this.config.sockRotY), radians(this.config.sockRotZ));
+    leg.sock.scale.set(this.config.sockScaleX, this.config.sockScaleY, this.config.sockScaleZ);
+
+    leg.shoe.position.set(this.config.shoeOffsetX, this.config.shoeOffsetY, this.config.shoeOffsetZ);
+    leg.shoe.rotation.set(radians(this.config.shoeRotX), radians(this.config.shoeRotY), radians(this.config.shoeRotZ));
+    leg.shoe.scale.set(this.config.shoeScaleX, this.config.shoeScaleY, this.config.shoeScaleZ);
+
+    leg.sole.position.set(this.config.soleOffsetX, this.config.soleOffsetY, this.config.soleOffsetZ);
+    leg.sole.rotation.set(radians(this.config.soleRotX), radians(this.config.soleRotY), radians(this.config.soleRotZ));
+    leg.sole.scale.set(this.config.soleScaleX, this.config.soleScaleY, this.config.soleScaleZ);
+
+    leg.upperShoe.position.set(this.config.upperShoeOffsetX, this.config.upperShoeOffsetY, this.config.upperShoeOffsetZ);
+    leg.upperShoe.rotation.set(radians(this.config.upperShoeRotX), radians(this.config.upperShoeRotY), radians(this.config.upperShoeRotZ));
+    leg.upperShoe.scale.set(this.config.upperShoeScaleX, this.config.upperShoeScaleY, this.config.upperShoeScaleZ);
+
+    leg.toe.position.set(this.config.toeOffsetX, this.config.toeOffsetY, this.config.toeOffsetZ);
+    leg.toe.rotation.set(radians(this.config.toeRotX), radians(this.config.toeRotY), radians(this.config.toeRotZ));
+    leg.toe.scale.set(0.92 * this.config.toeScaleX, 0.52 * this.config.toeScaleY, 0.66 * this.config.toeScaleZ);
   }
 }

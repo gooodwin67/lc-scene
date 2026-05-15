@@ -63,6 +63,31 @@ function createSliderRow(label, min, max, step, value, onChange) {
   return row;
 }
 
+function createColorRow(label, value, onChange) {
+  const row = document.createElement("div");
+  row.className = "control-row";
+
+  const labelEl = document.createElement("label");
+  labelEl.textContent = label;
+
+  const input = document.createElement("input");
+  input.type = "color";
+  input.value = value;
+
+  const output = document.createElement("output");
+  output.value = value;
+  output.textContent = value;
+
+  input.addEventListener("input", () => {
+    output.value = input.value;
+    output.textContent = input.value;
+    onChange(input.value);
+  });
+
+  row.append(labelEl, input, output);
+  return row;
+}
+
 function createGroup(panel, title, collapsed = true) {
   const section = document.createElement("section");
   section.className = "control-group";
@@ -1051,7 +1076,6 @@ export function createCharacterOffsetControls(panel, config, applyCharacterTrans
     ["Torso", ["torsoOffsetX", "torsoOffsetY", "torsoOffsetZ"]],
     ["Pelvis", ["pelvisOffsetX", "pelvisOffsetY", "pelvisOffsetZ"]],
     ["Head", ["headOffsetX", "headOffsetY", "headOffsetZ"]],
-    ["Hair", ["hairOffsetX", "hairOffsetY", "hairOffsetZ"]],
     ["Left Ear", ["leftEarOffsetX", "leftEarOffsetY", "leftEarOffsetZ"]],
     ["Right Ear", ["rightEarOffsetX", "rightEarOffsetY", "rightEarOffsetZ"]],
     ["Left Eye", ["leftEyeOffsetX", "leftEyeOffsetY", "leftEyeOffsetZ"]],
@@ -1066,6 +1090,7 @@ export function createCharacterOffsetControls(panel, config, applyCharacterTrans
     ["Right Hip", ["rightHipOffsetX", "rightHipOffsetY", "rightHipOffsetZ"]],
     ["Left Knee", ["leftKneeOffsetX", "leftKneeOffsetY", "leftKneeOffsetZ"]],
     ["Right Knee", ["rightKneeOffsetX", "rightKneeOffsetY", "rightKneeOffsetZ"]],
+    ["Socks", ["sockOffsetX", "sockOffsetY", "sockOffsetZ"]],
     ["Left Ankle", ["leftAnkleOffsetX", "leftAnkleOffsetY", "leftAnkleOffsetZ"]],
     ["Right Ankle", ["rightAnkleOffsetX", "rightAnkleOffsetY", "rightAnkleOffsetZ"]]
   ];
@@ -1095,9 +1120,6 @@ export function createCharacterSizeControls(panel, config, applyCharacterTransfo
     ["Torso", [["torsoScaleX", 0.2, 3, 0.01], ["torsoScaleY", 0.2, 3, 0.01], ["torsoScaleZ", 0.2, 3, 0.01]]],
     ["Pelvis", [["pelvisScaleX", 0.2, 3, 0.01], ["pelvisScaleY", 0.2, 3, 0.01], ["pelvisScaleZ", 0.2, 3, 0.01]]],
     ["Head", [["headScaleX", 0.2, 3, 0.01], ["headScaleY", 0.2, 3, 0.01], ["headScaleZ", 0.2, 3, 0.01]]],
-    ["Hair", [["hairScaleX", 0.2, 3, 0.01], ["hairScaleY", 0.2, 3, 0.01], ["hairScaleZ", 0.2, 3, 0.01]]],
-    ["Fringe", [["fringeScaleX", 0.2, 3, 0.01], ["fringeScaleY", 0.2, 3, 0.01], ["fringeScaleZ", 0.2, 3, 0.01]]],
-    ["Side Hair", [["sideHairScaleX", 0.2, 3, 0.01], ["sideHairScaleY", 0.2, 3, 0.01], ["sideHairScaleZ", 0.2, 3, 0.01]]],
     ["Ears", [["earScaleX", 0.2, 3, 0.01], ["earScaleY", 0.2, 3, 0.01], ["earScaleZ", 0.2, 3, 0.01]]],
     ["Eyes", [["eyeScaleX", 0.2, 3, 0.01], ["eyeScaleY", 0.2, 3, 0.01], ["eyeScaleZ", 0.2, 3, 0.01], ["pupilScale", 0.2, 3, 0.01]]],
     ["Brows", [["browScaleX", 0.2, 3, 0.01], ["browScaleY", 0.2, 3, 0.01], ["browScaleZ", 0.2, 3, 0.01]]],
@@ -1121,6 +1143,248 @@ export function createCharacterSizeControls(panel, config, applyCharacterTransfo
     fields.forEach(([key, min, max, step]) => {
       body.appendChild(
         createSliderRow(key, min, max, step, config[key], (next) => {
+          config[key] = next;
+          applyCharacterTransform();
+        })
+      );
+    });
+  });
+}
+
+export function createCharacterHairControls(panel, config, applyCharacterTransform, collapsed = false) {
+  const body = createGroup(panel, "Hair", collapsed);
+  const sections = [
+    {
+      title: "Cap Base",
+      fields: [
+        ["hairCapOffsetX", -2, 2, 0.01],
+        ["hairCapOffsetY", -2, 2, 0.01],
+        ["hairCapOffsetZ", -2, 2, 0.01],
+        ["hairCapRotX", -180, 180, 0.5],
+        ["hairCapRotY", -180, 180, 0.5],
+        ["hairCapRotZ", -180, 180, 0.5],
+        ["hairCapScaleX", 0.2, 3, 0.01],
+        ["hairCapScaleY", 0.2, 3, 0.01],
+        ["hairCapScaleZ", 0.2, 3, 0.01]
+      ],
+      colors: ["hairColor"]
+    },
+    {
+      title: "Cap Particles",
+      fields: [
+        ["hairOffsetX", -2, 2, 0.01],
+        ["hairOffsetY", -2, 2, 0.01],
+        ["hairOffsetZ", -2, 2, 0.01],
+        ["hairRotX", -180, 180, 0.5],
+        ["hairRotY", -180, 180, 0.5],
+        ["hairRotZ", -180, 180, 0.5],
+        ["hairScaleX", 0.2, 3, 0.01],
+        ["hairScaleY", 0.2, 3, 0.01],
+        ["hairScaleZ", 0.2, 3, 0.01],
+        ["hairCount", 0, 45000, 1],
+        ["hairParticleSize", 0.04, 0.6, 0.002],
+        ["hairParticleOpacity", 0, 1, 0.01],
+        ["hairScatter", 0, 0.2, 0.001]
+      ]
+    },
+    {
+      title: "Fringe Particles",
+      fields: [
+        ["fringeOffsetX", -2, 2, 0.01],
+        ["fringeOffsetY", -2, 2, 0.01],
+        ["fringeOffsetZ", -2, 2, 0.01],
+        ["fringeRotX", -180, 180, 0.5],
+        ["fringeRotY", -180, 180, 0.5],
+        ["fringeRotZ", -180, 180, 0.5],
+        ["fringeScaleX", 0.2, 3, 0.01],
+        ["fringeScaleY", 0.2, 3, 0.01],
+        ["fringeScaleZ", 0.2, 3, 0.01],
+        ["fringeCount", 0, 360, 1],
+        ["fringeParticleSize", 0.2, 3, 0.01],
+        ["fringeParticleOpacity", 0, 1, 0.01]
+      ]
+    }
+  ];
+
+  sections.forEach(({ title, fields, colors }) => {
+    const heading = document.createElement("h3");
+    heading.textContent = title;
+    heading.style.margin = "10px 0 8px";
+    heading.style.fontSize = "13px";
+    body.appendChild(heading);
+
+    fields.forEach(([key, min, max, step]) => {
+      body.appendChild(
+        createSliderRow(key, min, max, step, config[key], (next) => {
+          config[key] = next;
+          applyCharacterTransform();
+        })
+      );
+    });
+
+    (colors ?? []).forEach((key) => {
+      body.appendChild(
+        createColorRow(key, config[key], (next) => {
+          config[key] = next;
+          applyCharacterTransform();
+        })
+      );
+    });
+  });
+}
+
+export function createCharacterSleeveControls(panel, config, applyCharacterTransform, collapsed = false) {
+  const body = createGroup(panel, "Sleeves", collapsed);
+  const fields = [
+    ["sleeveLength", 0.4, 1.6, 0.01],
+    ["sleeveVolume", 0.6, 1.8, 0.01]
+  ];
+
+  fields.forEach(([key, min, max, step]) => {
+    body.appendChild(
+      createSliderRow(key, min, max, step, config[key], (next) => {
+        config[key] = next;
+        applyCharacterTransform();
+      })
+    );
+  });
+
+  body.appendChild(
+    createColorRow("sleeveColor", config.sleeveColor, (next) => {
+      config.sleeveColor = next;
+      applyCharacterTransform();
+    })
+  );
+}
+
+export function createCharacterColorControls(panel, config, applyCharacterTransform, collapsed = false) {
+  const body = createGroup(panel, "Character Colors", collapsed);
+  const fields = ["shirtColor", "pelvisColor", "pantsColor"];
+
+  fields.forEach((key) => {
+    body.appendChild(
+      createColorRow(key, config[key], (next) => {
+        config[key] = next;
+        applyCharacterTransform();
+      })
+    );
+  });
+}
+
+export function createCharacterFootControls(panel, config, applyCharacterTransform, collapsed = false) {
+  const body = createGroup(panel, "Feet", collapsed);
+  const sections = [
+    {
+      title: "Ankles",
+      fields: [
+        ["leftAnkleOffsetX", -2, 2, 0.01],
+        ["leftAnkleOffsetY", -2, 2, 0.01],
+        ["leftAnkleOffsetZ", -2, 2, 0.01],
+        ["leftAnkleX", -180, 180, 0.5],
+        ["leftAnkleY", -180, 180, 0.5],
+        ["leftAnkleZ", -180, 180, 0.5],
+        ["rightAnkleOffsetX", -2, 2, 0.01],
+        ["rightAnkleOffsetY", -2, 2, 0.01],
+        ["rightAnkleOffsetZ", -2, 2, 0.01],
+        ["rightAnkleX", -180, 180, 0.5],
+        ["rightAnkleY", -180, 180, 0.5],
+        ["rightAnkleZ", -180, 180, 0.5]
+      ]
+    },
+    {
+      title: "Socks",
+      fields: [
+        ["sockOffsetX", -2, 2, 0.01],
+        ["sockOffsetY", -2, 2, 0.01],
+        ["sockOffsetZ", -2, 2, 0.01],
+        ["sockRotX", -180, 180, 0.5],
+        ["sockRotY", -180, 180, 0.5],
+        ["sockRotZ", -180, 180, 0.5],
+        ["sockScaleX", 0.2, 3, 0.01],
+        ["sockScaleY", 0.2, 3, 0.01],
+        ["sockScaleZ", 0.2, 3, 0.01]
+      ],
+      colors: ["sockColor"]
+    },
+    {
+      title: "Shoe Group",
+      fields: [
+        ["shoeOffsetX", -2, 2, 0.01],
+        ["shoeOffsetY", -2, 2, 0.01],
+        ["shoeOffsetZ", -2, 2, 0.01],
+        ["shoeRotX", -180, 180, 0.5],
+        ["shoeRotY", -180, 180, 0.5],
+        ["shoeRotZ", -180, 180, 0.5],
+        ["shoeScaleX", 0.2, 3, 0.01],
+        ["shoeScaleY", 0.2, 3, 0.01],
+        ["shoeScaleZ", 0.2, 3, 0.01]
+      ],
+      colors: ["shoeColor"]
+    },
+    {
+      title: "Sole",
+      fields: [
+        ["soleOffsetX", -2, 2, 0.01],
+        ["soleOffsetY", -2, 2, 0.01],
+        ["soleOffsetZ", -2, 2, 0.01],
+        ["soleRotX", -180, 180, 0.5],
+        ["soleRotY", -180, 180, 0.5],
+        ["soleRotZ", -180, 180, 0.5],
+        ["soleScaleX", 0.2, 3, 0.01],
+        ["soleScaleY", 0.2, 3, 0.01],
+        ["soleScaleZ", 0.2, 3, 0.01]
+      ]
+    },
+    {
+      title: "Upper Shoe",
+      fields: [
+        ["upperShoeOffsetX", -2, 2, 0.01],
+        ["upperShoeOffsetY", -2, 2, 0.01],
+        ["upperShoeOffsetZ", -2, 2, 0.01],
+        ["upperShoeRotX", -180, 180, 0.5],
+        ["upperShoeRotY", -180, 180, 0.5],
+        ["upperShoeRotZ", -180, 180, 0.5],
+        ["upperShoeScaleX", 0.2, 3, 0.01],
+        ["upperShoeScaleY", 0.2, 3, 0.01],
+        ["upperShoeScaleZ", 0.2, 3, 0.01]
+      ]
+    },
+    {
+      title: "Toe",
+      fields: [
+        ["toeOffsetX", -2, 2, 0.01],
+        ["toeOffsetY", -2, 2, 0.01],
+        ["toeOffsetZ", -2, 2, 0.01],
+        ["toeRotX", -180, 180, 0.5],
+        ["toeRotY", -180, 180, 0.5],
+        ["toeRotZ", -180, 180, 0.5],
+        ["toeScaleX", 0.2, 3, 0.01],
+        ["toeScaleY", 0.2, 3, 0.01],
+        ["toeScaleZ", 0.2, 3, 0.01]
+      ],
+      colors: ["shoeToeColor"]
+    }
+  ];
+
+  sections.forEach(({ title, fields, colors }) => {
+    const heading = document.createElement("h3");
+    heading.textContent = title;
+    heading.style.margin = "10px 0 8px";
+    heading.style.fontSize = "13px";
+    body.appendChild(heading);
+
+    fields.forEach(([key, min, max, step]) => {
+      body.appendChild(
+        createSliderRow(key, min, max, step, config[key], (next) => {
+          config[key] = next;
+          applyCharacterTransform();
+        })
+      );
+    });
+
+    (colors ?? []).forEach((key) => {
+      body.appendChild(
+        createColorRow(key, config[key], (next) => {
           config[key] = next;
           applyCharacterTransform();
         })
