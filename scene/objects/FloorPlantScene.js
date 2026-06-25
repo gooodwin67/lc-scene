@@ -182,4 +182,5 @@ export class FloorPlantScene {
       this.plantConfig.rightRotZ
     );
   }
+
 }

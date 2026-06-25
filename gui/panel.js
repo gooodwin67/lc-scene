@@ -30,6 +30,12 @@ export function createToggleRow(panel, label, value, onChange) {
   return row;
 }
 
+export function createNumberRow(panel, label, min, max, step, value, onChange) {
+  const row = createSliderRow(label, min, max, step, value, onChange);
+  panel.appendChild(row);
+  return row;
+}
+
 function createSliderRow(label, min, max, step, value, onChange) {
   const row = document.createElement("div");
   row.className = "control-row";
@@ -81,6 +87,28 @@ function createColorRow(label, value, onChange) {
   input.addEventListener("input", () => {
     output.value = input.value;
     output.textContent = input.value;
+    onChange(input.value);
+  });
+
+  row.append(labelEl, input, output);
+  return row;
+}
+
+function createTextRow(label, value, onChange) {
+  const row = document.createElement("div");
+  row.className = "control-row";
+
+  const labelEl = document.createElement("label");
+  labelEl.textContent = label;
+
+  const input = document.createElement("input");
+  input.type = "text";
+  input.value = value;
+
+  const output = document.createElement("output");
+  output.textContent = "";
+
+  input.addEventListener("input", () => {
     onChange(input.value);
   });
 
@@ -848,6 +876,225 @@ export function createSpeakerControls(panel, config, applySpeakerTransform, coll
   });
 }
 
+export function createMugControls(panel, config, applyMugTransform, collapsed = true) {
+  const body = createGroup(panel, "Mug", collapsed);
+  const sections = [
+    {
+      title: "Transform",
+      fields: [
+        ["x", -10, 10, 0.01],
+        ["y", -10, 10, 0.01],
+        ["z", -10, 10, 0.01],
+        ["rotX", -180, 180, 0.5],
+        ["rotY", -180, 180, 0.5],
+        ["rotZ", -180, 180, 0.5],
+        ["scaleX", 0.1, 3, 0.01],
+        ["scaleY", 0.1, 3, 0.01],
+        ["scaleZ", 0.1, 3, 0.01]
+      ]
+    },
+    {
+      title: "Body",
+      fields: [
+        ["topRadius", 0.05, 1, 0.01],
+        ["bottomRadius", 0.05, 1, 0.01],
+        ["height", 0.05, 1.5, 0.01]
+      ],
+      colors: ["bodyColor"]
+    },
+    {
+      title: "Coffee",
+      fields: [
+        ["coffeeRadius", 0.02, 1, 0.01],
+        ["coffeeDepth", 0.005, 0.2, 0.005],
+        ["coffeeOffsetY", -0.2, 0.2, 0.005]
+      ],
+      colors: ["coffeeColor"]
+    },
+    {
+      title: "Handle",
+      fields: [
+        ["handleX", -1, 1, 0.01],
+        ["handleY", -1, 1, 0.01],
+        ["handleZ", -1, 1, 0.01],
+        ["handleRotX", -180, 180, 0.5],
+        ["handleRotY", -180, 180, 0.5],
+        ["handleRotZ", -180, 180, 0.5],
+        ["handleRadius", 0.03, 1, 0.01],
+        ["handleTube", 0.005, 0.2, 0.005],
+        ["handleArc", 0.2, 2, 0.01],
+        ["handleScaleX", 0.1, 3, 0.01],
+        ["handleScaleY", 0.1, 3, 0.01],
+        ["handleScaleZ", 0.1, 3, 0.01]
+      ]
+    },
+    {
+      title: "Steam",
+      fields: [
+        ["steamCount", 0, 100, 1],
+        ["steamHeight", 0.05, 2, 0.01],
+        ["steamSpeed", 0, 4, 0.01],
+        ["steamSpread", 0, 1, 0.01],
+        ["steamOpacity", 0, 1, 0.01],
+        ["steamThickness", 0.001, 0.08, 0.001],
+        ["steamOffsetX", -1, 1, 0.01],
+        ["steamOffsetY", -1, 1, 0.01],
+        ["steamOffsetZ", -1, 1, 0.01],
+        ["steamRotX", -180, 180, 0.5],
+        ["steamRotY", -180, 180, 0.5],
+        ["steamRotZ", -180, 180, 0.5]
+      ],
+      toggles: ["steamEnabled"],
+      colors: ["steamColor"]
+    }
+  ];
+
+  sections.forEach(({ title, fields, toggles, colors }) => {
+    const heading = document.createElement("h3");
+    heading.textContent = title;
+    heading.style.margin = "10px 0 8px";
+    heading.style.fontSize = "13px";
+    body.appendChild(heading);
+
+    fields.forEach(([key, min, max, step]) => {
+      body.appendChild(
+        createSliderRow(key, min, max, step, config[key], (next) => {
+          config[key] = next;
+          applyMugTransform();
+        })
+      );
+    });
+
+    (toggles ?? []).forEach((key) => {
+      createToggleRow(body, key, config[key], (next) => {
+        config[key] = next;
+        applyMugTransform();
+      });
+    });
+
+    (colors ?? []).forEach((key) => {
+      body.appendChild(
+        createColorRow(key, config[key], (next) => {
+          config[key] = next;
+          applyMugTransform();
+        })
+      );
+    });
+  });
+}
+
+export function createPhoneControls(panel, config, applyPhoneTransform, collapsed = true) {
+  const body = createGroup(panel, "Phone", collapsed);
+  const sections = [
+    {
+      title: "Transform",
+      fields: [
+        ["x", -10, 10, 0.01],
+        ["y", -10, 10, 0.01],
+        ["z", -10, 10, 0.01],
+        ["rotX", -180, 180, 0.5],
+        ["rotY", -180, 180, 0.5],
+        ["rotZ", -180, 180, 0.5],
+        ["scaleX", 0.1, 3, 0.01],
+        ["scaleY", 0.1, 3, 0.01],
+        ["scaleZ", 0.1, 3, 0.01]
+      ]
+    },
+    {
+      title: "Body",
+      fields: [
+        ["width", 0.05, 2, 0.01],
+        ["height", 0.05, 2, 0.01],
+        ["depth", 0.005, 0.3, 0.005],
+        ["radius", 0.005, 0.3, 0.005]
+      ],
+      colors: ["bodyColor"]
+    },
+    {
+      title: "Screen",
+      fields: [
+        ["screenWidth", 0.02, 2, 0.01],
+        ["screenHeight", 0.02, 2, 0.01],
+        ["screenDepth", 0.002, 0.1, 0.002],
+        ["screenRadius", 0.002, 0.2, 0.002],
+        ["screenX", -1, 1, 0.01],
+        ["screenY", -1, 1, 0.01],
+        ["screenZ", -0.2, 0.2, 0.005],
+        ["screenGlow", 0, 1, 0.01]
+      ],
+      colors: ["screenColor"]
+    },
+    {
+      title: "Camera Dot",
+      fields: [
+        ["cameraRadius", 0.002, 0.1, 0.002],
+        ["cameraDepth", 0.002, 0.1, 0.002],
+        ["cameraX", -1, 1, 0.01],
+        ["cameraY", -1, 1, 0.01],
+        ["cameraZ", -0.2, 0.2, 0.005]
+      ],
+      colors: ["detailColor"]
+    },
+    {
+      title: "Time",
+      fields: [
+        ["timeWidth", 0.01, 0.2, 0.005],
+        ["timeHeight", 0.03, 0.4, 0.005],
+        ["timeThickness", 0.002, 0.05, 0.002],
+        ["timeGap", 0, 0.1, 0.002],
+        ["timeX", -1, 1, 0.01],
+        ["timeY", -1, 1, 0.01],
+        ["timeZ", -0.2, 0.2, 0.005],
+        ["timeRotX", -180, 180, 0.5],
+        ["timeRotY", -180, 180, 0.5],
+        ["timeRotZ", -180, 180, 0.5],
+        ["fingerprintRadius", 0.005, 0.2, 0.005],
+        ["fingerprintDepth", 0.002, 0.1, 0.002],
+        ["fingerprintX", -1, 1, 0.01],
+        ["fingerprintY", -1, 1, 0.01],
+        ["fingerprintZ", -0.2, 0.2, 0.005]
+      ],
+      text: ["timeText"],
+      colors: ["timeColor", "fingerprintColor"]
+    }
+  ];
+
+  sections.forEach(({ title, fields, text, colors }) => {
+    const heading = document.createElement("h3");
+    heading.textContent = title;
+    heading.style.margin = "10px 0 8px";
+    heading.style.fontSize = "13px";
+    body.appendChild(heading);
+
+    fields.forEach(([key, min, max, step]) => {
+      body.appendChild(
+        createSliderRow(key, min, max, step, config[key], (next) => {
+          config[key] = next;
+          applyPhoneTransform();
+        })
+      );
+    });
+
+    (text ?? []).forEach((key) => {
+      body.appendChild(
+        createTextRow(key, config[key], (next) => {
+          config[key] = next;
+          applyPhoneTransform();
+        })
+      );
+    });
+
+    (colors ?? []).forEach((key) => {
+      body.appendChild(
+        createColorRow(key, config[key], (next) => {
+          config[key] = next;
+          applyPhoneTransform();
+        })
+      );
+    });
+  });
+}
+
 export function createChairControls(panel, config, applyChairTransform, collapsed = true) {
   const body = createGroup(panel, "Chair", collapsed);
   const commonFields = [
@@ -1155,22 +1402,7 @@ export function createCharacterHairControls(panel, config, applyCharacterTransfo
   const body = createGroup(panel, "Hair", collapsed);
   const sections = [
     {
-      title: "Cap Base",
-      fields: [
-        ["hairCapOffsetX", -2, 2, 0.01],
-        ["hairCapOffsetY", -2, 2, 0.01],
-        ["hairCapOffsetZ", -2, 2, 0.01],
-        ["hairCapRotX", -180, 180, 0.5],
-        ["hairCapRotY", -180, 180, 0.5],
-        ["hairCapRotZ", -180, 180, 0.5],
-        ["hairCapScaleX", 0.2, 3, 0.01],
-        ["hairCapScaleY", 0.2, 3, 0.01],
-        ["hairCapScaleZ", 0.2, 3, 0.01]
-      ],
-      colors: ["hairColor"]
-    },
-    {
-      title: "Cap Particles",
+      title: "Hair Particles",
       fields: [
         ["hairOffsetX", -2, 2, 0.01],
         ["hairOffsetY", -2, 2, 0.01],
@@ -1185,7 +1417,8 @@ export function createCharacterHairControls(panel, config, applyCharacterTransfo
         ["hairParticleSize", 0.04, 0.6, 0.002],
         ["hairParticleOpacity", 0, 1, 0.01],
         ["hairScatter", 0, 0.2, 0.001]
-      ]
+      ],
+      colors: ["hairColor"]
     },
     {
       title: "Fringe Particles",

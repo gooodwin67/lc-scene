@@ -73,4 +73,8 @@ export class SpeakerScene {
     this.group.rotation.y = radians(this.config.rotY);
     this.group.rotation.z = radians(this.config.rotZ);
   }
+
+  setConePulse(scale) {
+    this.cone.scale.set(scale, 1, scale);
+  }
 }

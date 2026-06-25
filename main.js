@@ -4,6 +4,7 @@ import {
   createControlPanel,
   createFolder,
   createToggleRow,
+  createNumberRow,
   createPapersControls,
   createPinsControls,
   createLightingControls,
@@ -23,6 +24,8 @@ import {
   createKeyboardControls,
   createMouseControls,
   createSpeakerControls,
+  createMugControls,
+  createPhoneControls,
   createChairControls,
   createCharacterRotationControls,
   createCharacterOffsetControls,
@@ -54,6 +57,8 @@ import {
   keyboardConfig,
   mouseConfig,
   speakerConfig,
+  mugConfig,
+  phoneConfig,
   rugConfig,
   chairConfig,
   characterConfig,
@@ -70,9 +75,15 @@ import { MonitorScene } from "./scene/objects/MonitorScene.js";
 import { FloorPlantScene } from "./scene/objects/FloorPlantScene.js";
 import { InputDevicesScene } from "./scene/objects/InputDevicesScene.js";
 import { SpeakerScene } from "./scene/objects/SpeakerScene.js";
+import { MugScene } from "./scene/objects/MugScene.js";
+import { PhoneScene } from "./scene/objects/PhoneScene.js";
 import { RugScene } from "./scene/objects/RugScene.js";
 import { ChairScene } from "./scene/objects/ChairScene.js";
 import { CharacterScene } from "./scene/objects/CharacterScene.js";
+
+if (new URLSearchParams(window.location.search).get("embed") === "1") {
+  document.documentElement.classList.add("is-embedded");
+}
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xfbf4e8);
@@ -106,6 +117,8 @@ const floorPlantState = cloneConfig(floorPlantConfig);
 const keyboardState = cloneConfig(keyboardConfig);
 const mouseState = cloneConfig(mouseConfig);
 const speakerState = cloneConfig(speakerConfig);
+const mugState = cloneConfig(mugConfig);
+const phoneState = cloneConfig(phoneConfig);
 const rugState = cloneConfig(rugConfig);
 const chairState = cloneConfig(chairConfig);
 const characterState = cloneConfig(characterConfig);
@@ -123,6 +136,8 @@ const monitorTwo = new MonitorScene(scene, monitorTwoState);
 const floorPlant = new FloorPlantScene(scene, floorPotState, floorPlantState);
 const inputDevices = new InputDevicesScene(scene, keyboardState, mouseState);
 const speaker = new SpeakerScene(scene, speakerState);
+const mug = new MugScene(scene, mugState);
+const phone = new PhoneScene(scene, phoneState);
 const rug = new RugScene(scene, rugState);
 const chair = new ChairScene(scene, chairState);
 const character = new CharacterScene(scene, characterState);
@@ -147,6 +162,9 @@ createToggleRow(allGuiFolder, "Fog", atmosphereState.fogEnabled, (next) => {
   atmosphereState.fogEnabled = next;
   scene.fog = next ? new THREE.Fog(0xfbf4e8, 14, 28) : null;
 });
+createNumberRow(allGuiFolder, "Music Pulse Speed", 0.25, 8, 0.05, atmosphereState.musicPulseSpeed, (next) => {
+  atmosphereState.musicPulseSpeed = next;
+});
 
 createBoardTransformControls(allGuiFolder, boardState, () => board.apply(), true);
 createCameraControls(allGuiFolder, cameraState, () => cameraRig.apply(), true);
@@ -161,6 +179,8 @@ createFloorPlantControls(allGuiFolder, floorPlantState, () => floorPlant.applyPl
 createKeyboardControls(allGuiFolder, keyboardState, () => inputDevices.applyKeyboard(), true);
 createMouseControls(allGuiFolder, mouseState, () => inputDevices.applyMouse(), true);
 createSpeakerControls(allGuiFolder, speakerState, () => speaker.apply(), true);
+createMugControls(allGuiFolder, mugState, () => mug.apply(), true);
+createPhoneControls(allGuiFolder, phoneState, () => phone.apply(), true);
 createChairControls(allGuiFolder, chairState, () => chair.apply(), true);
 createShelfControls(allGuiFolder, shelfState, () => shelf.applyShelfTransform(), true);
 createPictureControls(allGuiFolder, pictureState, () => picture.apply(), true);
@@ -260,6 +280,14 @@ let rightMonitorHeadYawTarget = -24;
 let rightMonitorHeadYawMoveStartTime = 0;
 let rightMonitorHeadYawMoveDuration = 700;
 let rightMonitorHeadYawHoldUntil = 0;
+const musicHeadBaseState = {
+  pitch: characterState.headPitch,
+  leftAnkleX: characterState.leftAnkleX
+};
+const musicHeadLastPulse = {
+  pitch: 0,
+  leftAnkleX: 0
+};
 let leftMonitorLineScrollValue = 0;
 let leftMonitorLineScrollStart = 0;
 let leftMonitorLineScrollTarget = 0;
@@ -360,6 +388,8 @@ const guiDiffSources = [
   ["Keyboard", keyboardState, keyboardConfig],
   ["Mouse", mouseState, mouseConfig],
   ["Speaker", speakerState, speakerConfig],
+  ["Mug", mugState, mugConfig],
+  ["Phone", phoneState, phoneConfig],
   ["Chair", chairState, chairConfig],
   ["Shelf", shelfState, shelfConfig],
   ["Shelf Pot", potState, potConfig],
@@ -1256,7 +1286,24 @@ rightMonitorIdleButton.addEventListener("click", () => startIdleMode("right_moni
 stopButton.addEventListener("click", stopAllAnimations);
 updateActionButtons();
 
+function updateMusicHeadPulse(time) {
+  const pulseTime = time * atmosphereState.musicPulseSpeed;
+  const rawPitch = characterState.headPitch - musicHeadLastPulse.pitch;
+  const rawLeftAnkleX = characterState.leftAnkleX - musicHeadLastPulse.leftAnkleX;
+  musicHeadBaseState.pitch += (rawPitch - musicHeadBaseState.pitch) * 0.08;
+  musicHeadBaseState.leftAnkleX += (rawLeftAnkleX - musicHeadBaseState.leftAnkleX) * 0.08;
+
+  musicHeadLastPulse.pitch = Math.sin(pulseTime * 0.0038) * 0.55 + Math.sin(pulseTime * 0.009) * 0.18;
+  musicHeadLastPulse.leftAnkleX = Math.sin(pulseTime * 0.0042 + 0.7) * 0.9;
+  characterState.headPitch = musicHeadBaseState.pitch + musicHeadLastPulse.pitch;
+  characterState.leftAnkleX = musicHeadBaseState.leftAnkleX + musicHeadLastPulse.leftAnkleX;
+  character.apply();
+}
+
 function animate(time) {
+  const pulseTime = time * atmosphereState.musicPulseSpeed;
+  speaker.setConePulse(1 + Math.sin(pulseTime * 0.0048) * 0.045 + Math.sin(pulseTime * 0.013) * 0.018);
+  mug.updateSteam(time);
   updatePoseAnimations(time);
   if (idleEnabled && !characterAnimation) {
     queueNextIdleMovement(time);
@@ -1264,6 +1311,7 @@ function animate(time) {
   updateIdleMonitor(time);
   updateRightMonitorIdle(time);
   updateCharacterAnimation(time);
+  updateMusicHeadPulse(time);
   cameraRig.controls.update();
   renderer.render(scene, cameraRig.camera);
 }

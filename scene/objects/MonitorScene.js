@@ -273,4 +273,5 @@ export class MonitorScene {
     this.group.rotation.y = radians(this.config.rotY);
     this.group.rotation.z = radians(this.config.rotZ);
   }
+
 }

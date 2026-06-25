@@ -15,13 +15,6 @@ function createSphere(radius, material) {
   return applyShadow(new THREE.Mesh(new THREE.SphereGeometry(radius, 24, 24), material));
 }
 
-function createUpperHemisphere(radius, material) {
-  return applyShadow(new THREE.Mesh(
-    new THREE.SphereGeometry(radius, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2),
-    material
-  ));
-}
-
 function createBox(width, height, depth, material) {
   return applyShadow(new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), material));
 }
@@ -72,7 +65,6 @@ export class CharacterScene {
     this.config = config;
 
     this.skinMaterial = new THREE.MeshStandardMaterial({ color: 0xf7cdaa, roughness: 0.95 });
-    this.hairCapMaterial = new THREE.MeshStandardMaterial({ color: 0x12151c, roughness: 0.9 });
     this.hairStripTexture = createHairStripTexture();
     this.hairStripObject = new THREE.Object3D();
     this.shirtMaterial = new THREE.MeshStandardMaterial({ color: 0x3a4d50, roughness: 0.92 });
@@ -117,9 +109,6 @@ export class CharacterScene {
 
     this.hairGroup = new THREE.Group();
     this.headPivot.add(this.hairGroup);
-
-    this.hairCap = createUpperHemisphere(0.55, this.hairCapMaterial);
-    this.hairGroup.add(this.hairCap);
 
     this.hair = this.createHairStrips(45000);
     this.hairGroup.add(this.hair);
@@ -509,24 +498,6 @@ export class CharacterScene {
     this.hairGroup.position.set(0, 0, 0);
     this.hairGroup.rotation.set(0, 0, 0);
     this.hairGroup.scale.set(1, 1, 1);
-    this.hairCapMaterial.color.set(this.config.hairColor ?? 0x12151c);
-
-    this.hairCap.position.set(
-      this.config.hairCapOffsetX,
-      this.config.hairCapOffsetY,
-      this.config.hairCapOffsetZ
-    );
-    this.hairCap.rotation.set(
-      radians(this.config.hairCapRotX),
-      radians(this.config.hairCapRotY),
-      radians(this.config.hairCapRotZ)
-    );
-    this.hairCap.scale.set(
-      1.08 * this.config.headScaleX * this.config.hairCapScaleX,
-      1.0 * this.config.headScaleY * this.config.hairCapScaleY,
-      1.03 * this.config.headScaleZ * this.config.hairCapScaleZ
-    );
-
     this.updateHairCloud(this.hair, "hair", (index) => {
       const angle = seededRandom(index, 1) * Math.PI * 2;
       const radius = Math.sqrt(seededRandom(index, 2));

@@ -188,3 +188,9 @@ canvas {
   opacity: 0.65;
   cursor: default;
 }
+
+.is-embedded .hud,
+.is-embedded .control-panel,
+.is-embedded .action-stack {
+  display: none !important;
+}
