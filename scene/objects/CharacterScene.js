@@ -67,6 +67,7 @@ export class CharacterScene {
     this.skinMaterial = new THREE.MeshStandardMaterial({ color: 0xf7cdaa, roughness: 0.95 });
     this.hairStripTexture = createHairStripTexture();
     this.hairStripObject = new THREE.Object3D();
+    this.hairBaseMaterial = new THREE.MeshStandardMaterial({ color: 0x12151c, roughness: 0.95 });
     this.shirtMaterial = new THREE.MeshStandardMaterial({ color: 0x3a4d50, roughness: 0.92 });
     this.sleeveMaterial = new THREE.MeshStandardMaterial({ color: 0x3a4d50, roughness: 0.92 });
     this.pelvisMaterial = new THREE.MeshStandardMaterial({ color: 0x262537, roughness: 0.94 });
@@ -110,6 +111,9 @@ export class CharacterScene {
     this.hairGroup = new THREE.Group();
     this.headPivot.add(this.hairGroup);
 
+    this.hairBase = createSphere(0.52, this.hairBaseMaterial);
+    this.hairGroup.add(this.hairBase);
+
     this.hair = this.createHairStrips(45000);
     this.hairGroup.add(this.hair);
 
@@ -148,6 +152,14 @@ export class CharacterScene {
     this.rightPupil.position.z = 0.04;
     this.rightEye.add(this.rightPupil);
 
+    this.leftEyeHighlight = createSphere(0.018, this.eyeWhiteMaterial);
+    this.leftEyeHighlight.position.set(0.02, 0.025, 0.075);
+    this.leftEye.add(this.leftEyeHighlight);
+
+    this.rightEyeHighlight = createSphere(0.018, this.eyeWhiteMaterial);
+    this.rightEyeHighlight.position.set(0.02, 0.025, 0.075);
+    this.rightEye.add(this.rightEyeHighlight);
+
     this.leftBrow = createBox(0.16, 0.04, 0.03, this.browMaterial);
     this.leftBrow.position.set(-0.18, 0.23, 0.45);
     this.headPivot.add(this.leftBrow);
@@ -155,6 +167,15 @@ export class CharacterScene {
     this.rightBrow = createBox(0.16, 0.04, 0.03, this.browMaterial);
     this.rightBrow.position.set(0.18, 0.23, 0.45);
     this.headPivot.add(this.rightBrow);
+
+    this.mouth = new THREE.Mesh(
+      new THREE.TorusGeometry(0.085, 0.012, 8, 28, Math.PI),
+      this.browMaterial
+    );
+    this.mouth.position.set(0, -0.18, 0.48);
+    this.mouth.rotation.z = Math.PI;
+    this.mouth.scale.set(1.15, 0.42, 1);
+    this.headPivot.add(this.mouth);
 
     this.leftArm = this.buildArm(-1);
     this.rightArm = this.buildArm(1);
@@ -242,14 +263,22 @@ export class CharacterScene {
     const offsetX = eyeYaw * 0.035;
     const offsetY = eyePitch * 0.028;
 
-    this.leftPupil.position.x = offsetX;
-    this.leftPupil.position.y = offsetY;
-    this.rightPupil.position.x = offsetX;
-    this.rightPupil.position.y = offsetY;
+    this.leftPupil.position.x = offsetX + this.config.pupilOffsetX;
+    this.leftPupil.position.y = offsetY + this.config.pupilOffsetY;
+    this.leftPupil.position.z = this.config.pupilOffsetZ;
+    this.rightPupil.position.x = offsetX + this.config.pupilOffsetX;
+    this.rightPupil.position.y = offsetY + this.config.pupilOffsetY;
+    this.rightPupil.position.z = this.config.pupilOffsetZ;
+    this.leftEyeHighlight.position.x = offsetX + this.config.eyeHighlightOffsetX;
+    this.leftEyeHighlight.position.y = offsetY + this.config.eyeHighlightOffsetY;
+    this.leftEyeHighlight.position.z = this.config.eyeHighlightOffsetZ;
+    this.rightEyeHighlight.position.x = offsetX + this.config.eyeHighlightOffsetX;
+    this.rightEyeHighlight.position.y = offsetY + this.config.eyeHighlightOffsetY;
+    this.rightEyeHighlight.position.z = this.config.eyeHighlightOffsetZ;
   }
 
   createHairStrips(maxCount) {
-    const geometry = new THREE.PlaneGeometry(0.03, 0.12);
+    const geometry = this.createHairStripGeometry();
     const material = new THREE.MeshBasicMaterial({
       color: 0x6a3e2b,
       map: this.hairStripTexture,
@@ -262,6 +291,21 @@ export class CharacterScene {
     const strips = new THREE.InstancedMesh(geometry, material, maxCount);
     strips.frustumCulled = false;
     return strips;
+  }
+
+  createHairStripGeometry() {
+    const geometry = new THREE.PlaneGeometry(0.03, 0.12, 1, 5);
+    const position = geometry.attributes.position;
+    for (let index = 0; index < position.count; index += 1) {
+      const y = position.getY(index);
+      const t = (y + 0.06) / 0.12;
+      const curve = Math.sin(t * Math.PI) * this.config.hairCurveX + t * t * this.config.hairCurveTipX;
+      position.setX(index, position.getX(index) + curve);
+      position.setZ(index, position.getZ(index) + Math.sin(t * Math.PI * 1.35) * this.config.hairCurveZ);
+    }
+    position.needsUpdate = true;
+    geometry.computeVertexNormals();
+    return geometry;
   }
 
   apply() {
@@ -318,10 +362,27 @@ export class CharacterScene {
     this.earRight.scale.set(this.config.earScaleX, this.config.earScaleY, this.config.earScaleZ);
     this.leftEyeWhite.scale.set(0.92 * this.config.eyeScaleX, 1.08 * this.config.eyeScaleY, 0.45 * this.config.eyeScaleZ);
     this.rightEyeWhite.scale.set(0.92 * this.config.eyeScaleX, 1.08 * this.config.eyeScaleY, 0.45 * this.config.eyeScaleZ);
+    this.leftEyeWhite.rotation.set(radians(this.config.leftEyeWhiteRotX), radians(this.config.leftEyeWhiteRotY), radians(this.config.leftEyeWhiteRotZ));
+    this.rightEyeWhite.rotation.set(radians(this.config.rightEyeWhiteRotX), radians(this.config.rightEyeWhiteRotY), radians(this.config.rightEyeWhiteRotZ));
     this.leftPupil.scale.setScalar(this.config.pupilScale);
     this.rightPupil.scale.setScalar(this.config.pupilScale);
+    this.leftEyeHighlight.scale.setScalar(this.config.eyeHighlightScale);
+    this.rightEyeHighlight.scale.setScalar(this.config.eyeHighlightScale);
     this.leftBrow.scale.set(this.config.browScaleX, this.config.browScaleY, this.config.browScaleZ);
     this.rightBrow.scale.set(this.config.browScaleX, this.config.browScaleY, this.config.browScaleZ);
+    this.mouth.geometry.dispose();
+    this.mouth.geometry = new THREE.TorusGeometry(
+      this.config.mouthRadius,
+      this.config.mouthTube,
+      8,
+      28,
+      Math.PI * this.config.mouthArc
+    );
+    this.mouth.position.set(this.config.mouthOffsetX, this.config.mouthOffsetY, this.config.mouthOffsetZ);
+    this.mouth.rotation.x = radians(this.config.mouthRotX);
+    this.mouth.rotation.y = radians(this.config.mouthRotY);
+    this.mouth.rotation.z = radians(this.config.mouthRotZ);
+    this.mouth.scale.set(this.config.mouthScaleX, this.config.mouthScaleY, this.config.mouthScaleZ);
 
     this.earLeft.position.set(
       -0.5 + this.config.leftEarOffsetX,
@@ -498,6 +559,24 @@ export class CharacterScene {
     this.hairGroup.position.set(0, 0, 0);
     this.hairGroup.rotation.set(0, 0, 0);
     this.hairGroup.scale.set(1, 1, 1);
+    this.hair.geometry.dispose();
+    this.hair.geometry = this.createHairStripGeometry();
+    this.hairBaseMaterial.color.set(this.config.hairColor ?? 0x12151c);
+    this.hairBase.position.set(
+      this.config.hairOffsetX + this.config.hairBaseOffsetX,
+      this.config.hairOffsetY + this.config.hairBaseOffsetY,
+      this.config.hairOffsetZ + this.config.hairBaseOffsetZ
+    );
+    this.hairBase.rotation.set(
+      radians(this.config.hairRotX + this.config.hairBaseRotX),
+      radians(this.config.hairRotY + this.config.hairBaseRotY),
+      radians(this.config.hairRotZ + this.config.hairBaseRotZ)
+    );
+    this.hairBase.scale.set(
+      this.config.hairBaseScaleX * this.config.hairScaleX,
+      this.config.hairBaseScaleY * this.config.hairScaleY,
+      this.config.hairBaseScaleZ * this.config.hairScaleZ
+    );
     this.updateHairCloud(this.hair, "hair", (index) => {
       const angle = seededRandom(index, 1) * Math.PI * 2;
       const radius = Math.sqrt(seededRandom(index, 2));

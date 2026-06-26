@@ -1402,6 +1402,20 @@ export function createCharacterHairControls(panel, config, applyCharacterTransfo
   const body = createGroup(panel, "Hair", collapsed);
   const sections = [
     {
+      title: "Hair Base",
+      fields: [
+        ["hairBaseOffsetX", -2, 2, 0.01],
+        ["hairBaseOffsetY", -2, 2, 0.01],
+        ["hairBaseOffsetZ", -2, 2, 0.01],
+        ["hairBaseRotX", -180, 180, 0.5],
+        ["hairBaseRotY", -180, 180, 0.5],
+        ["hairBaseRotZ", -180, 180, 0.5],
+        ["hairBaseScaleX", 0.05, 3, 0.01],
+        ["hairBaseScaleY", 0.05, 3, 0.01],
+        ["hairBaseScaleZ", 0.05, 3, 0.01]
+      ]
+    },
+    {
       title: "Hair Particles",
       fields: [
         ["hairOffsetX", -2, 2, 0.01],
@@ -1416,7 +1430,10 @@ export function createCharacterHairControls(panel, config, applyCharacterTransfo
         ["hairCount", 0, 45000, 1],
         ["hairParticleSize", 0.04, 0.6, 0.002],
         ["hairParticleOpacity", 0, 1, 0.01],
-        ["hairScatter", 0, 0.2, 0.001]
+        ["hairScatter", 0, 0.2, 0.001],
+        ["hairCurveX", -0.1, 0.1, 0.001],
+        ["hairCurveTipX", -0.1, 0.1, 0.001],
+        ["hairCurveZ", -0.1, 0.1, 0.001]
       ],
       colors: ["hairColor"]
     },
@@ -1458,6 +1475,79 @@ export function createCharacterHairControls(panel, config, applyCharacterTransfo
     (colors ?? []).forEach((key) => {
       body.appendChild(
         createColorRow(key, config[key], (next) => {
+          config[key] = next;
+          applyCharacterTransform();
+        })
+      );
+    });
+  });
+}
+
+export function createCharacterFaceControls(panel, config, applyCharacterTransform, collapsed = false) {
+  const body = createGroup(panel, "Face", collapsed);
+  const sections = [
+    {
+      title: "Pupils",
+      fields: [
+        ["pupilOffsetX", -0.2, 0.2, 0.005],
+        ["pupilOffsetY", -0.2, 0.2, 0.005],
+        ["pupilOffsetZ", -0.1, 0.2, 0.005]
+      ]
+    },
+    {
+      title: "Left Eye White",
+      fields: [
+        ["leftEyeWhiteRotX", -180, 180, 0.5],
+        ["leftEyeWhiteRotY", -180, 180, 0.5],
+        ["leftEyeWhiteRotZ", -180, 180, 0.5]
+      ]
+    },
+    {
+      title: "Right Eye White",
+      fields: [
+        ["rightEyeWhiteRotX", -180, 180, 0.5],
+        ["rightEyeWhiteRotY", -180, 180, 0.5],
+        ["rightEyeWhiteRotZ", -180, 180, 0.5]
+      ]
+    },
+    {
+      title: "Eye Highlight",
+      fields: [
+        ["eyeHighlightScale", 0.05, 3, 0.01],
+        ["eyeHighlightOffsetX", -0.3, 0.3, 0.005],
+        ["eyeHighlightOffsetY", -0.3, 0.3, 0.005],
+        ["eyeHighlightOffsetZ", -0.1, 0.2, 0.005]
+      ]
+    },
+    {
+      title: "Mouth",
+      fields: [
+        ["mouthOffsetX", -0.5, 0.5, 0.005],
+        ["mouthOffsetY", -0.5, 0.5, 0.005],
+        ["mouthOffsetZ", 0, 0.8, 0.005],
+        ["mouthRotX", -180, 180, 0.5],
+        ["mouthRotY", -180, 180, 0.5],
+        ["mouthRotZ", -180, 180, 0.5],
+        ["mouthScaleX", 0.05, 3, 0.01],
+        ["mouthScaleY", 0.05, 3, 0.01],
+        ["mouthScaleZ", 0.05, 3, 0.01],
+        ["mouthRadius", 0.01, 0.3, 0.005],
+        ["mouthTube", 0.002, 0.06, 0.002],
+        ["mouthArc", 0.1, 2, 0.01]
+      ]
+    }
+  ];
+
+  sections.forEach(({ title, fields }) => {
+    const heading = document.createElement("h3");
+    heading.textContent = title;
+    heading.style.margin = "10px 0 8px";
+    heading.style.fontSize = "13px";
+    body.appendChild(heading);
+
+    fields.forEach(([key, min, max, step]) => {
+      body.appendChild(
+        createSliderRow(key, min, max, step, config[key], (next) => {
           config[key] = next;
           applyCharacterTransform();
         })

@@ -31,6 +31,7 @@ import {
   createCharacterOffsetControls,
   createCharacterSizeControls,
   createCharacterHairControls,
+  createCharacterFaceControls,
   createCharacterSleeveControls,
   createCharacterColorControls,
   createCharacterFootControls
@@ -193,6 +194,7 @@ createCharacterOffsetControls(manFolder, characterState, () => character.apply()
 createCharacterRotationControls(manFolder, characterState, () => character.apply(), true);
 createCharacterSizeControls(manFolder, characterState, () => character.apply(), true);
 createCharacterHairControls(controlPanel, characterState, () => character.apply(), false);
+createCharacterFaceControls(controlPanel, characterState, () => character.apply(), false);
 createCharacterSleeveControls(controlPanel, characterState, () => character.apply(), false);
 createCharacterColorControls(controlPanel, characterState, () => character.apply(), false);
 createCharacterFootControls(controlPanel, characterState, () => character.apply(), false);
