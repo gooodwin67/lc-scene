@@ -21,6 +21,7 @@ import {
   createMonitorControls,
   createFloorPotControls,
   createFloorPlantControls,
+  createFloorLampControls,
   createKeyboardControls,
   createMouseControls,
   createSpeakerControls,
@@ -55,6 +56,7 @@ import {
   monitorTwoConfig,
   floorPotConfig,
   floorPlantConfig,
+  floorLampConfig,
   keyboardConfig,
   mouseConfig,
   speakerConfig,
@@ -74,6 +76,7 @@ import { DeskScene } from "./scene/objects/DeskScene.js";
 import { PictureScene } from "./scene/objects/PictureScene.js";
 import { MonitorScene } from "./scene/objects/MonitorScene.js";
 import { FloorPlantScene } from "./scene/objects/FloorPlantScene.js";
+import { FloorLampScene } from "./scene/objects/FloorLampScene.js";
 import { InputDevicesScene } from "./scene/objects/InputDevicesScene.js";
 import { SpeakerScene } from "./scene/objects/SpeakerScene.js";
 import { MugScene } from "./scene/objects/MugScene.js";
@@ -84,7 +87,19 @@ import { CharacterScene } from "./scene/objects/CharacterScene.js";
 
 if (new URLSearchParams(window.location.search).get("embed") === "1") {
   document.documentElement.classList.add("is-embedded");
+  document.documentElement.classList.add("is-ui-hidden");
 }
+
+const uiToggleButton = document.createElement("button");
+uiToggleButton.className = "ui-toggle-button";
+uiToggleButton.type = "button";
+uiToggleButton.textContent = "GUI";
+uiToggleButton.setAttribute("aria-pressed", String(document.documentElement.classList.contains("is-ui-hidden")));
+uiToggleButton.addEventListener("click", () => {
+  const isHidden = document.documentElement.classList.toggle("is-ui-hidden");
+  uiToggleButton.setAttribute("aria-pressed", String(isHidden));
+});
+document.body.appendChild(uiToggleButton);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xfbf4e8);
@@ -96,6 +111,13 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+// renderer.shadowMap.type = THREE.VSMShadowMap;
+// renderer.toneMapping = THREE.ACESFilmicToneMapping;
+// renderer.toneMappingExposure = 1.05;
+
+
+
 document.body.appendChild(renderer.domElement);
 
 const cameraState = cloneConfig(cameraConfig);
@@ -115,6 +137,7 @@ const monitorOneState = cloneConfig(monitorOneConfig);
 const monitorTwoState = cloneConfig(monitorTwoConfig);
 const floorPotState = cloneConfig(floorPotConfig);
 const floorPlantState = cloneConfig(floorPlantConfig);
+const floorLampState = cloneConfig(floorLampConfig);
 const keyboardState = cloneConfig(keyboardConfig);
 const mouseState = cloneConfig(mouseConfig);
 const speakerState = cloneConfig(speakerConfig);
@@ -126,6 +149,7 @@ const characterState = cloneConfig(characterConfig);
 const atmosphereState = cloneConfig(atmosphereConfig);
 
 const cameraRig = new CameraRig(renderer, cameraState);
+cameraRig.setOrbitEnabled(atmosphereState.orbitControlsEnabled);
 const lightingRig = new LightingRig(scene, lightingState);
 const room = new Room(scene, roomState);
 const board = new BoardScene(scene, boardState, papersState, pinsState);
@@ -135,6 +159,7 @@ const picture = new PictureScene(scene, pictureState);
 const monitorOne = new MonitorScene(scene, monitorOneState);
 const monitorTwo = new MonitorScene(scene, monitorTwoState);
 const floorPlant = new FloorPlantScene(scene, floorPotState, floorPlantState);
+const floorLamp = new FloorLampScene(scene, floorLampState);
 const inputDevices = new InputDevicesScene(scene, keyboardState, mouseState);
 const speaker = new SpeakerScene(scene, speakerState);
 const mug = new MugScene(scene, mugState);
@@ -148,6 +173,47 @@ const idleCharacterBaseState = cloneConfig(characterConfig);
 idleCharacterBaseState.headYaw = 32;
 const leftMonitorIdleBaseState = cloneConfig(monitorTwoConfig);
 const rightMonitorIdleBaseState = cloneConfig(monitorOneConfig);
+const cameraIntroStartState = cloneConfig(cameraConfig);
+const cameraIntroTargetState = {
+  ...cameraIntroStartState,
+  x: 15.6,
+  y: 1.2,
+  z: 12.51,
+  targetX: 1.94,
+  targetY: -0.8,
+  targetZ: -8.34,
+  panX: -8.63,
+  fov: 28
+};
+const cameraIntroDelay = 300;
+const cameraIntroDuration = 2600;
+let cameraIntroStartTime = null;
+let cameraIntroDone = false;
+let introGreetingStarted = false;
+let introGreetingDone = false;
+let ambientInterruptMode = "right_monitor_idle";
+let nextAmbientInterruptTime = Infinity;
+let ambientInterruptEndTime = Infinity;
+let earlyLeftMonitorShown = false;
+let earlyPhoneRingShown = false;
+const pointerParallaxTarget = { x: 0, y: 0 };
+const pointerParallaxState = { x: 0, y: 0 };
+const raycaster = new THREE.Raycaster();
+const clickPointer = new THREE.Vector2();
+const lampLightingTarget = {
+  ambient: 0.1,
+  key: 0.05,
+  fill: 1.2,
+  front: 0
+};
+const lampMonitorTarget = {
+  screenColor: "#dedede",
+  screenGlowColor: "#8e98a9"
+};
+let lampLightingBase = null;
+let lampMonitorBase = null;
+let lampLightingAnimation = null;
+let lampLightingEnabled = false;
 
 const controlPanel = createControlPanel("Board Controls");
 document.body.appendChild(controlPanel);
@@ -163,6 +229,10 @@ createToggleRow(allGuiFolder, "Fog", atmosphereState.fogEnabled, (next) => {
   atmosphereState.fogEnabled = next;
   scene.fog = next ? new THREE.Fog(0xfbf4e8, 14, 28) : null;
 });
+createToggleRow(allGuiFolder, "Orbit Controls", atmosphereState.orbitControlsEnabled, (next) => {
+  atmosphereState.orbitControlsEnabled = next;
+  cameraRig.setOrbitEnabled(next);
+});
 createNumberRow(allGuiFolder, "Music Pulse Speed", 0.25, 8, 0.05, atmosphereState.musicPulseSpeed, (next) => {
   atmosphereState.musicPulseSpeed = next;
 });
@@ -177,6 +247,7 @@ createMonitorControls(allGuiFolder, "Monitor 1", monitorOneState, () => monitorO
 createMonitorControls(allGuiFolder, "Monitor 2", monitorTwoState, () => monitorTwo.apply(), true);
 createFloorPotControls(allGuiFolder, floorPotState, () => floorPlant.applyPot(), true);
 createFloorPlantControls(allGuiFolder, floorPlantState, () => floorPlant.applyPlant(), true);
+createFloorLampControls(allGuiFolder, floorLampState, () => floorLamp.apply(), true);
 createKeyboardControls(allGuiFolder, keyboardState, () => inputDevices.applyKeyboard(), true);
 createMouseControls(allGuiFolder, mouseState, () => inputDevices.applyMouse(), true);
 createSpeakerControls(allGuiFolder, speakerState, () => speaker.apply(), true);
@@ -231,6 +302,12 @@ waveButton.type = "button";
 waveButton.textContent = "Привет";
 actionStack.appendChild(waveButton);
 
+const phoneRingButton = document.createElement("button");
+phoneRingButton.className = "action-button";
+phoneRingButton.type = "button";
+phoneRingButton.textContent = "Phone Ring";
+actionStack.appendChild(phoneRingButton);
+
 const mouseOneButton = document.createElement("button");
 mouseOneButton.className = "action-button";
 mouseOneButton.type = "button";
@@ -256,6 +333,7 @@ mouseFourButton.textContent = "Mouse 4";
 actionStack.appendChild(mouseFourButton);
 
 let characterAnimation = null;
+let phoneRingAnimation = null;
 let idleEnabled = false;
 let idleMode = null;
 let pendingIdleMode = null;
@@ -387,6 +465,7 @@ const guiDiffSources = [
   ["Monitor 2", monitorTwoState, monitorTwoConfig],
   ["Floor Pot", floorPotState, floorPotConfig],
   ["Floor Plant", floorPlantState, floorPlantConfig],
+  ["Floor Lamp", floorLampState, floorLampConfig],
   ["Keyboard", keyboardState, keyboardConfig],
   ["Mouse", mouseState, mouseConfig],
   ["Speaker", speakerState, speakerConfig],
@@ -489,10 +568,347 @@ function easeInOutSine(alpha) {
   return -(Math.cos(Math.PI * alpha) - 1) / 2;
 }
 
+function easeInOutCubic(alpha) {
+  return alpha < 0.5 ? 4 * alpha * alpha * alpha : 1 - Math.pow(-2 * alpha + 2, 3) / 2;
+}
+
 function easeOutBack(alpha) {
   const c1 = 1.70158;
   const c3 = c1 + 1;
   return 1 + c3 * Math.pow(alpha - 1, 3) + c1 * Math.pow(alpha - 1, 2);
+}
+
+function updateCameraIntro(time) {
+  if (cameraIntroDone) {
+    return;
+  }
+
+  if (cameraIntroStartTime === null) {
+    cameraIntroStartTime = time;
+  }
+
+  const elapsed = time - cameraIntroStartTime - cameraIntroDelay;
+  if (elapsed < 0) {
+    cameraRig.apply();
+    return;
+  }
+
+  const t = Math.min(1, elapsed / cameraIntroDuration);
+  const eased = easeInOutCubic(t);
+  Object.keys(cameraIntroTargetState).forEach((key) => {
+    const start = cameraIntroStartState[key];
+    const target = cameraIntroTargetState[key];
+    cameraState[key] = typeof start === "number" && typeof target === "number"
+      ? lerp(start, target, eased)
+      : target;
+  });
+  cameraRig.apply();
+
+  if (t >= 1) {
+    Object.assign(cameraState, cameraIntroTargetState);
+    cameraRig.apply();
+    cameraIntroDone = true;
+  }
+}
+
+function scheduleNextAmbientInterrupt(time) {
+  if (!earlyLeftMonitorShown) {
+    nextAmbientInterruptTime = time + 2500;
+    return;
+  }
+  if (!earlyPhoneRingShown) {
+    nextAmbientInterruptTime = time + 5000;
+    return;
+  }
+  nextAmbientInterruptTime = time + 7000 + Math.random() * 6000;
+}
+
+function startMainAmbientMode(time) {
+  ambientInterruptMode = "right_monitor_idle";
+  ambientInterruptEndTime = Infinity;
+  startIdleMode("right_monitor_idle");
+  scheduleNextAmbientInterrupt(time);
+}
+
+function startAmbientInterrupt(time) {
+  if (!idleEnabled || characterAnimation || phoneRingAnimation) {
+    scheduleNextAmbientInterrupt(time + 3000);
+    return;
+  }
+
+  if (!earlyLeftMonitorShown) {
+    earlyLeftMonitorShown = true;
+    ambientInterruptMode = "left_monitor_idle";
+    ambientInterruptEndTime = time + 5000;
+    startIdleMode("left_monitor_idle");
+    return;
+  }
+
+  if (!earlyPhoneRingShown) {
+    earlyPhoneRingShown = true;
+    ambientInterruptMode = "phone_ring";
+    ambientInterruptEndTime = time + 4600;
+    beginPhoneRing();
+    return;
+  }
+
+  if (Math.random() < 0.36) {
+    ambientInterruptMode = "phone_ring";
+    ambientInterruptEndTime = time + 4600;
+    beginPhoneRing();
+    return;
+  }
+
+  ambientInterruptMode = "left_monitor_idle";
+  ambientInterruptEndTime = time + 5000;
+  startIdleMode("left_monitor_idle");
+}
+
+function updateSceneAutoplay(time) {
+  if (cameraIntroDone && !introGreetingStarted) {
+    introGreetingStarted = true;
+    beginCharacterGreeting();
+    return;
+  }
+
+  if (!introGreetingDone) {
+    return;
+  }
+
+  if (time >= ambientInterruptEndTime) {
+    startMainAmbientMode(time);
+    return;
+  }
+
+  if (ambientInterruptMode === "right_monitor_idle" && time >= nextAmbientInterruptTime) {
+    startAmbientInterrupt(time);
+  }
+}
+
+function updatePointerParallax() {
+  pointerParallaxState.x += (pointerParallaxTarget.x - pointerParallaxState.x) * cameraState.mouseSmooth;
+  pointerParallaxState.y += (pointerParallaxTarget.y - pointerParallaxState.y) * cameraState.mouseSmooth;
+  const parallaxX = pointerParallaxState.x * cameraState.mouseXAmount;
+  const parallaxY = pointerParallaxState.y * cameraState.mouseYAmount;
+  cameraRig.setParallax(
+    cameraState.mouseXCamera ? parallaxX : 0,
+    cameraState.mouseYCamera ? parallaxY : 0,
+    cameraState.mouseXTarget ? parallaxX : 0,
+    cameraState.mouseYTarget ? parallaxY : 0
+  );
+  cameraRig.apply();
+}
+
+function startLampLightingTransition() {
+  lampLightingAnimation = {
+    startTime: null,
+    duration: 850,
+    lightingFrom: {
+      ambient: lightingState.ambient,
+      key: lightingState.key,
+      fill: lightingState.fill,
+      front: lightingState.front
+    },
+    lightingTarget: lampLightingEnabled ? lampLightingTarget : lampLightingBase,
+    monitorOneFrom: {
+      screenColor: monitorOneState.screenColor,
+      screenGlowColor: monitorOneState.screenGlowColor
+    },
+    monitorTwoFrom: {
+      screenColor: monitorTwoState.screenColor,
+      screenGlowColor: monitorTwoState.screenGlowColor
+    },
+    monitorTarget: lampLightingEnabled ? lampMonitorTarget : lampMonitorBase
+  };
+}
+
+function toggleLampLighting() {
+  if (!lampLightingEnabled) {
+    lampLightingBase = {
+      ambient: lightingState.ambient,
+      key: lightingState.key,
+      fill: lightingState.fill,
+      front: lightingState.front
+    };
+    lampMonitorBase = {
+      screenColor: monitorOneState.screenColor,
+      screenGlowColor: monitorOneState.screenGlowColor
+    };
+    lampLightingEnabled = true;
+    startLampLightingTransition();
+    return;
+  }
+
+  lampLightingEnabled = false;
+  startLampLightingTransition();
+}
+
+function updateLampLighting(time) {
+  if (!lampLightingAnimation) {
+    return;
+  }
+
+  if (lampLightingAnimation.startTime === null) {
+    lampLightingAnimation.startTime = time;
+  }
+
+  const t = Math.min(1, (time - lampLightingAnimation.startTime) / lampLightingAnimation.duration);
+  const eased = easeInOutSine(t);
+  if (lampLightingAnimation.lightingTarget) {
+    Object.keys(lampLightingAnimation.lightingTarget).forEach((key) => {
+      lightingState[key] = lerp(lampLightingAnimation.lightingFrom[key], lampLightingAnimation.lightingTarget[key], eased);
+    });
+    lightingRig.apply();
+  }
+  if (lampLightingAnimation.monitorTarget) {
+    monitorOneState.screenColor = mixHexColor(lampLightingAnimation.monitorOneFrom.screenColor, lampLightingAnimation.monitorTarget.screenColor, eased);
+    monitorOneState.screenGlowColor = mixHexColor(
+      lampLightingAnimation.monitorOneFrom.screenGlowColor,
+      lampLightingAnimation.monitorTarget.screenGlowColor,
+      eased
+    );
+    monitorTwoState.screenColor = mixHexColor(lampLightingAnimation.monitorTwoFrom.screenColor, lampLightingAnimation.monitorTarget.screenColor, eased);
+    monitorTwoState.screenGlowColor = mixHexColor(
+      lampLightingAnimation.monitorTwoFrom.screenGlowColor,
+      lampLightingAnimation.monitorTarget.screenGlowColor,
+      eased
+    );
+    monitorOne.apply();
+    monitorTwo.apply();
+  }
+  if (t >= 1) {
+    if (lampLightingAnimation.lightingTarget) {
+      Object.assign(lightingState, lampLightingAnimation.lightingTarget);
+      lightingRig.apply();
+    }
+    if (lampLightingAnimation.monitorTarget) {
+      Object.assign(monitorOneState, lampLightingAnimation.monitorTarget);
+      Object.assign(monitorTwoState, lampLightingAnimation.monitorTarget);
+      monitorOne.apply();
+      monitorTwo.apply();
+    }
+    lampLightingAnimation = null;
+  }
+}
+
+function mixHexColor(start, end, alpha) {
+  const startColor = new THREE.Color(start);
+  const endColor = new THREE.Color(end);
+  return `#${startColor.lerp(endColor, alpha).getHexString()}`;
+}
+
+function beginPhoneRing() {
+  if (phoneRingAnimation) {
+    return;
+  }
+
+  characterAnimation = null;
+  poseAnimations.length = 0;
+  nextIdleMovementTime = 0;
+  pendingIdleMode = null;
+  resetIdleHeadYaw();
+  resetIdleMonitor();
+  smoothReturnTarget = null;
+  idleEnabled = false;
+  idleMode = null;
+  phoneRingButton.disabled = true;
+  waveButton.disabled = false;
+  phoneRingAnimation = {
+    stage: "ring",
+    startTime: null,
+    phoneStart: {
+      x: phoneState.x,
+      y: phoneState.y,
+      z: phoneState.z,
+      rotX: phoneState.rotX,
+      rotY: phoneState.rotY,
+      rotZ: phoneState.rotZ,
+      screenColor: phoneState.screenColor,
+      screenGlow: phoneState.screenGlow,
+      timeText: phoneState.timeText
+    },
+    headYawStart: characterState.headYaw
+  };
+  updateActionButtons();
+}
+
+function updatePhoneRing(time) {
+  if (!phoneRingAnimation) {
+    return;
+  }
+
+  if (phoneRingAnimation.startTime === null) {
+    phoneRingAnimation.startTime = time;
+  }
+
+  const elapsed = time - phoneRingAnimation.startTime;
+  const ringDuration = 3000;
+  const returnDuration = 850;
+  const phoneStart = phoneRingAnimation.phoneStart;
+
+  if (phoneRingAnimation.stage === "ring") {
+    const t = Math.min(1, elapsed / ringDuration);
+    const headT = easeInOutSine(Math.min(1, elapsed / 550));
+    const buzz = Math.sin(time * 0.07);
+    const altBuzz = Math.sin(time * 0.105 + 1.4);
+    const screenLift = 0.72 + Math.sin(time * 0.018) * 0.035;
+
+    phoneState.x = phoneStart.x + buzz * 0.0018;
+    phoneState.y = phoneStart.y + altBuzz * 0.0012;
+    phoneState.z = phoneStart.z + altBuzz * 0.0018;
+    phoneState.rotX = phoneStart.rotX + altBuzz * 0.12;
+    phoneState.rotY = phoneStart.rotY + buzz * 0.12;
+    phoneState.rotZ = phoneStart.rotZ + buzz * 0.18;
+    phoneState.screenColor = mixHexColor(phoneStart.screenColor, "#dfeaff", screenLift);
+    phoneState.screenGlow = phoneStart.screenGlow + 1.05 + Math.sin(time * 0.021) * 0.04;
+    phoneState.timeText = "88888";
+    characterState.headYaw = lerp(phoneRingAnimation.headYawStart, 61, headT);
+    phone.apply();
+    character.apply();
+
+    if (t >= 1) {
+      phoneRingAnimation.stage = "return";
+      phoneRingAnimation.startTime = time;
+      phoneRingAnimation.returnStart = {
+        x: phoneState.x,
+        y: phoneState.y,
+        z: phoneState.z,
+        rotX: phoneState.rotX,
+        rotY: phoneState.rotY,
+        rotZ: phoneState.rotZ,
+        screenColor: phoneState.screenColor,
+        screenGlow: phoneState.screenGlow,
+        timeText: phoneState.timeText,
+        headYaw: characterState.headYaw
+      };
+    }
+    return;
+  }
+
+  const t = Math.min(1, elapsed / returnDuration);
+  const eased = easeInOutSine(t);
+  phoneState.x = lerp(phoneRingAnimation.returnStart.x, phoneStart.x, eased);
+  phoneState.y = lerp(phoneRingAnimation.returnStart.y, phoneStart.y, eased);
+  phoneState.z = lerp(phoneRingAnimation.returnStart.z, phoneStart.z, eased);
+  phoneState.rotX = lerp(phoneRingAnimation.returnStart.rotX, phoneStart.rotX, eased);
+  phoneState.rotY = lerp(phoneRingAnimation.returnStart.rotY, phoneStart.rotY, eased);
+  phoneState.rotZ = lerp(phoneRingAnimation.returnStart.rotZ, phoneStart.rotZ, eased);
+  phoneState.screenColor = mixHexColor(phoneRingAnimation.returnStart.screenColor, phoneStart.screenColor, eased);
+  phoneState.screenGlow = lerp(phoneRingAnimation.returnStart.screenGlow, phoneStart.screenGlow, eased);
+  phoneState.timeText = t < 0.5 ? phoneRingAnimation.returnStart.timeText : phoneStart.timeText;
+  characterState.headYaw = lerp(phoneRingAnimation.returnStart.headYaw, phoneRingAnimation.headYawStart, eased);
+  phone.apply();
+  character.apply();
+
+  if (t >= 1) {
+    Object.assign(phoneState, phoneStart);
+    characterState.headYaw = phoneRingAnimation.headYawStart;
+    phone.apply();
+    character.apply();
+    phoneRingAnimation = null;
+    phoneRingButton.disabled = false;
+    updateActionButtons();
+  }
 }
 
 function setCharacterPoseFromMap(values) {
@@ -566,6 +982,7 @@ function pickPoseValues(source, keys) {
 function updateActionButtons() {
   idleToggleButton.style.opacity = idleEnabled ? "1" : "";
   rightMonitorIdleButton.style.opacity = idleEnabled && idleMode === "right_monitor_idle" ? "1" : "";
+  phoneRingButton.style.opacity = phoneRingAnimation ? "1" : "";
 }
 
 function createPoseAnimation(movement, options = {}) {
@@ -658,6 +1075,7 @@ function stopAllAnimations() {
     : characterDefaultPose;
 
   characterAnimation = null;
+  phoneRingAnimation = null;
   poseAnimations.length = 0;
   nextIdleMovementTime = 0;
   resetIdleHeadYaw();
@@ -668,7 +1086,17 @@ function stopAllAnimations() {
     mouse: idleMouseBaseState,
     character: returnCharacter
   };
+  phoneState.x = phoneConfig.x;
+  phoneState.y = phoneConfig.y;
+  phoneState.z = phoneConfig.z;
+  phoneState.rotX = phoneConfig.rotX;
+  phoneState.rotY = phoneConfig.rotY;
+  phoneState.rotZ = phoneConfig.rotZ;
+  phoneState.screenColor = phoneConfig.screenColor;
+  phoneState.screenGlow = phoneConfig.screenGlow;
+  phone.apply();
   waveButton.disabled = false;
+  phoneRingButton.disabled = false;
   updateActionButtons();
 }
 
@@ -1050,6 +1478,8 @@ function beginCharacterGreeting() {
     return;
   }
 
+  phoneRingAnimation = null;
+  phoneRingButton.disabled = false;
   poseAnimations.length = 0;
   nextIdleMovementTime = 0;
   pendingIdleMode = null;
@@ -1228,6 +1658,10 @@ function updateCharacterAnimation(time) {
       });
       characterAnimation = null;
       waveButton.disabled = false;
+      if (introGreetingStarted && !introGreetingDone) {
+        introGreetingDone = true;
+        startMainAmbientMode(time);
+      }
       if (idleEnabled) {
         nextIdleMovementTime = 0;
       }
@@ -1259,6 +1693,7 @@ function toggleIdleLoop() {
 }
 
 waveButton.addEventListener("click", beginCharacterGreeting);
+phoneRingButton.addEventListener("click", beginPhoneRing);
 mouseOneButton.addEventListener("click", () => {
   idleEnabled = false;
   pendingIdleMode = null;
@@ -1288,6 +1723,21 @@ rightMonitorIdleButton.addEventListener("click", () => startIdleMode("right_moni
 stopButton.addEventListener("click", stopAllAnimations);
 updateActionButtons();
 
+window.addEventListener("pointermove", (event) => {
+  pointerParallaxTarget.x = -(event.clientX / window.innerWidth - 0.5) * 2;
+  pointerParallaxTarget.y = -(event.clientY / window.innerHeight - 0.5) * 2;
+});
+
+renderer.domElement.addEventListener("pointerdown", (event) => {
+  const rect = renderer.domElement.getBoundingClientRect();
+  clickPointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  clickPointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(clickPointer, cameraRig.camera);
+  if (raycaster.intersectObjects(floorLamp.group.children, true).length > 0) {
+    toggleLampLighting();
+  }
+});
+
 function updateMusicHeadPulse(time) {
   const pulseTime = time * atmosphereState.musicPulseSpeed;
   const rawPitch = characterState.headPitch - musicHeadLastPulse.pitch;
@@ -1314,6 +1764,11 @@ function animate(time) {
   updateRightMonitorIdle(time);
   updateCharacterAnimation(time);
   updateMusicHeadPulse(time);
+  updatePhoneRing(time);
+  updateLampLighting(time);
+  updateCameraIntro(time);
+  updateSceneAutoplay(time);
+  updatePointerParallax();
   cameraRig.controls.update();
   renderer.render(scene, cameraRig.camera);
 }

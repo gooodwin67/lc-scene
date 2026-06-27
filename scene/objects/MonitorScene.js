@@ -55,7 +55,12 @@ export class MonitorScene {
     this.group = new THREE.Group();
 
     this.frameMaterial = new THREE.MeshStandardMaterial({ color: 0x6c677f, roughness: 0.88 });
-    this.screenMaterial = new THREE.MeshStandardMaterial({ color: 0x353a41, roughness: 0.95 });
+    this.screenMaterial = new THREE.MeshStandardMaterial({
+      color: 0x353a41,
+      roughness: 0.95,
+      emissive: 0x353a41,
+      emissiveIntensity: config.screenGlow ?? 0.18
+    });
     this.standMaterial = new THREE.MeshStandardMaterial({ color: 0x534d63, roughness: 0.9 });
 
     this.frame = new THREE.Mesh(
@@ -241,6 +246,10 @@ export class MonitorScene {
   }
 
   apply() {
+    this.screenMaterial.color.set(this.config.screenColor ?? 0x353a41);
+    this.screenMaterial.emissive.set(this.config.screenGlowColor ?? this.config.screenColor ?? 0x353a41);
+    this.screenMaterial.emissiveIntensity = this.config.screenGlow ?? 0.18;
+
     this.frame.geometry.dispose();
     this.frame.geometry = makeRoundedPlate(this.config.width, this.config.height, this.config.depth, this.config.radius);
 

@@ -285,12 +285,33 @@ export function createCameraControls(panel, config, applyCamera, collapsed = tru
     ["targetX", -20, 20, 0.01],
     ["targetY", -20, 20, 0.01],
     ["targetZ", -20, 20, 0.01],
+    ["panX", -10, 10, 0.01],
+    ["panY", -10, 10, 0.01],
+    ["mouseXAmount", -10, 10, 0.01],
+    ["mouseYAmount", -10, 10, 0.01],
+    ["mouseSmooth", 0.005, 0.2, 0.005],
     ["fov", 10, 90, 1]
   ];
 
   fields.forEach(([key, min, max, step]) => {
     body.appendChild(
       createSliderRow(key, min, max, step, config[key], (next) => {
+        config[key] = next;
+        applyCamera();
+      })
+    );
+  });
+
+  const toggles = [
+    ["mouseXCamera", "Mouse X Camera"],
+    ["mouseXTarget", "Mouse X Target"],
+    ["mouseYCamera", "Mouse Y Camera"],
+    ["mouseYTarget", "Mouse Y Target"]
+  ];
+
+  toggles.forEach(([key, label]) => {
+    body.appendChild(
+      createToggleRow(document.createDocumentFragment(), label, config[key], (next) => {
         config[key] = next;
         applyCamera();
       })
@@ -631,6 +652,7 @@ export function createMonitorControls(panel, title, config, applyMonitorTransfor
     ["radius", 0.02, 1, 0.01],
     ["screenInset", 0.02, 1, 0.01],
     ["screenDepth", 0.01, 0.3, 0.01],
+    ["screenGlow", 0, 2, 0.01],
     ["standWidth", 0.05, 1.5, 0.01],
     ["standHeight", 0.05, 2.5, 0.01],
     ["standDepth", 0.05, 2, 0.01],
@@ -650,6 +672,15 @@ export function createMonitorControls(panel, title, config, applyMonitorTransfor
   fields.forEach(([key, min, max, step]) => {
     body.appendChild(
       createSliderRow(key, min, max, step, config[key], (next) => {
+        config[key] = next;
+        applyMonitorTransform();
+      })
+    );
+  });
+
+  ["screenColor", "screenGlowColor"].forEach((key) => {
+    body.appendChild(
+      createColorRow(key, config[key], (next) => {
         config[key] = next;
         applyMonitorTransform();
       })
@@ -773,6 +804,99 @@ export function createFloorPlantControls(panel, config, applyFloorPlantTransform
       createSliderRow(key, min, max, step, config[key], (next) => {
         config[key] = next;
         applyFloorPlantTransform();
+      })
+    );
+  });
+}
+
+export function createFloorLampControls(panel, config, applyFloorLampTransform, collapsed = true) {
+  const body = createGroup(panel, "Floor Lamp", collapsed);
+  const sections = [
+    {
+      title: "Transform",
+      fields: [
+        ["x", -10, 10, 0.01],
+        ["y", -10, 10, 0.01],
+        ["z", -10, 10, 0.01],
+        ["rotX", -180, 180, 0.5],
+        ["rotY", -180, 180, 0.5],
+        ["rotZ", -180, 180, 0.5],
+        ["scaleX", 0.1, 3, 0.01],
+        ["scaleY", 0.1, 3, 0.01],
+        ["scaleZ", 0.1, 3, 0.01]
+      ]
+    },
+    {
+      title: "Parts",
+      fields: [
+        ["baseRadius", 0.05, 1, 0.01],
+        ["baseHeight", 0.01, 0.4, 0.01],
+        ["baseY", -1, 1, 0.01],
+        ["poleRadius", 0.005, 0.2, 0.005],
+        ["poleHeight", 0.5, 6, 0.01],
+        ["shadeX", -1, 1, 0.01],
+        ["shadeY", 0, 6, 0.01],
+        ["shadeZ", -1, 1, 0.01],
+        ["shadeRotX", -180, 180, 0.5],
+        ["shadeRotY", -180, 180, 0.5],
+        ["shadeRotZ", -180, 180, 0.5],
+        ["shadeTopRadius", 0.05, 2, 0.01],
+        ["shadeBottomRadius", 0.05, 2, 0.01],
+        ["shadeHeight", 0.05, 2, 0.01],
+        ["bulbX", -1, 1, 0.01],
+        ["bulbY", 0, 6, 0.01],
+        ["bulbZ", -1, 1, 0.01],
+        ["bulbRadius", 0.02, 0.5, 0.01]
+      ]
+    },
+    {
+      title: "Light",
+      fields: [
+        ["lightX", -2, 2, 0.01],
+        ["lightY", 0, 6, 0.01],
+        ["lightZ", -2, 2, 0.01],
+        ["lightIntensity", 0, 5, 0.01],
+        ["lightDistance", 0, 20, 0.1],
+        ["lightDecay", 0, 4, 0.05],
+        ["shadeGlow", 0, 3, 0.01],
+        ["shadeOpacity", 0, 1, 0.01],
+        ["bulbGlow", 0, 5, 0.01]
+      ]
+    }
+  ];
+
+  sections.forEach((section) => {
+    const heading = document.createElement("h3");
+    heading.textContent = section.title;
+    heading.style.margin = "4px 0 8px";
+    heading.style.fontSize = "13px";
+    body.appendChild(heading);
+
+    section.fields.forEach(([key, min, max, step]) => {
+      body.appendChild(
+        createSliderRow(key, min, max, step, config[key], (next) => {
+          config[key] = next;
+          applyFloorLampTransform();
+        })
+      );
+    });
+  });
+
+  const colorFields = [
+    ["baseColor", "baseColor"],
+    ["poleColor", "poleColor"],
+    ["shadeColor", "shadeColor"],
+    ["shadeGlowColor", "shadeGlowColor"],
+    ["bulbColor", "bulbColor"],
+    ["bulbGlowColor", "bulbGlowColor"],
+    ["lightColor", "lightColor"]
+  ];
+
+  colorFields.forEach(([key, label]) => {
+    body.appendChild(
+      createColorRow(label, config[key], (next) => {
+        config[key] = next;
+        applyFloorLampTransform();
       })
     );
   });

@@ -22,6 +22,31 @@ canvas {
   display: block;
 }
 
+.ui-toggle-button {
+  position: fixed;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  border: 0;
+  border-radius: 999px;
+  padding: 5px 11px;
+  background: rgba(255, 250, 242, 0.88);
+  color: #6a5443;
+  font: 700 11px "Trebuchet MS", "Segoe UI", sans-serif;
+  box-shadow: 0 10px 24px rgba(131, 95, 45, 0.14);
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+}
+
+.ui-toggle-button:hover {
+  background: rgba(255, 247, 235, 0.98);
+}
+
+.ui-toggle-button[aria-pressed="true"] {
+  opacity: 0.72;
+}
+
 .hud {
   position: fixed;
   left: 18px;
@@ -189,8 +214,8 @@ canvas {
   cursor: default;
 }
 
-.is-embedded .hud,
-.is-embedded .control-panel,
-.is-embedded .action-stack {
+.is-ui-hidden .hud,
+.is-ui-hidden .control-panel,
+.is-ui-hidden .action-stack {
   display: none !important;
 }

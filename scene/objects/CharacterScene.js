@@ -67,7 +67,7 @@ export class CharacterScene {
     this.skinMaterial = new THREE.MeshStandardMaterial({ color: 0xf7cdaa, roughness: 0.95 });
     this.hairStripTexture = createHairStripTexture();
     this.hairStripObject = new THREE.Object3D();
-    this.hairBaseMaterial = new THREE.MeshStandardMaterial({ color: 0x12151c, roughness: 0.95 });
+    this.hairBaseMaterial = new THREE.MeshBasicMaterial({ color: 0x000000, roughness: 1.0 });
     this.shirtMaterial = new THREE.MeshStandardMaterial({ color: 0x3a4d50, roughness: 0.92 });
     this.sleeveMaterial = new THREE.MeshStandardMaterial({ color: 0x3a4d50, roughness: 0.92 });
     this.pelvisMaterial = new THREE.MeshStandardMaterial({ color: 0x262537, roughness: 0.94 });
