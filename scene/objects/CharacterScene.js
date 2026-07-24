@@ -15,6 +15,41 @@ function createSphere(radius, material) {
   return applyShadow(new THREE.Mesh(new THREE.SphereGeometry(radius, 24, 24), material));
 }
 
+function createFlatCircle(radius, material) {
+  const circle = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, 1, 32), material);
+  circle.castShadow = false;
+  circle.receiveShadow = false;
+  return circle;
+}
+
+function createHeadGeometry(radius, jawWidth, chinLength, cheekFullness) {
+  const geometry = new THREE.SphereGeometry(radius, 32, 32);
+  const position = geometry.attributes.position;
+
+  for (let index = 0; index < position.count; index += 1) {
+    let x = position.getX(index);
+    let y = position.getY(index);
+    let z = position.getZ(index);
+    const normalizedY = y / radius;
+    const lowerFace = Math.max(0, -normalizedY);
+    const cheek = Math.exp(-Math.pow((normalizedY + 0.08) / 0.34, 2)) * cheekFullness;
+    const jawTaper = THREE.MathUtils.lerp(1, jawWidth, lowerFace ** 1.35);
+
+    x *= jawTaper * (1 + cheek);
+    z *= 1 + cheek * 0.22;
+    if (normalizedY < -0.38) {
+      const chin = (-normalizedY - 0.38) / 0.62;
+      y -= chinLength * chin * chin;
+    }
+
+    position.setXYZ(index, x, y, z);
+  }
+
+  position.needsUpdate = true;
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
 function createBox(width, height, depth, material) {
   return applyShadow(new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), material));
 }
@@ -64,7 +99,13 @@ export class CharacterScene {
   constructor(scene, config) {
     this.config = config;
 
-    this.skinMaterial = new THREE.MeshStandardMaterial({ color: 0xf7cdaa, roughness: 0.95 });
+    this.skinMaterial = new THREE.MeshPhysicalMaterial({
+      color: 0xf7cdaa,
+      roughness: 0.78,
+      sheen: 0.12,
+      sheenRoughness: 0.82,
+      sheenColor: 0xffd8c2
+    });
     this.hairStripTexture = createHairStripTexture();
     this.hairStripObject = new THREE.Object3D();
     this.hairBaseMaterial = new THREE.MeshBasicMaterial({ color: 0x000000, roughness: 1.0 });
@@ -75,9 +116,27 @@ export class CharacterScene {
     this.sockMaterial = new THREE.MeshStandardMaterial({ color: 0xf7f7f6, roughness: 0.96 });
     this.shoeMaterial = new THREE.MeshStandardMaterial({ color: 0x3c414a, roughness: 0.9 });
     this.shoeToeMaterial = new THREE.MeshStandardMaterial({ color: 0xf6f6f6, roughness: 0.95 });
-    this.eyeWhiteMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.92 });
-    this.eyePupilMaterial = new THREE.MeshStandardMaterial({ color: 0x5a3428, roughness: 0.85 });
+    this.eyeWhiteMaterial = new THREE.MeshStandardMaterial({ color: 0xf4eee7, roughness: 0.82 });
+    this.eyePupilMaterial = new THREE.MeshStandardMaterial({ color: 0x7b5139, roughness: 0.72 });
+    this.pupilCoreMaterial = new THREE.MeshStandardMaterial({ color: 0x171312, roughness: 0.68 });
     this.browMaterial = new THREE.MeshStandardMaterial({ color: 0x5a3428, roughness: 0.9 });
+    this.noseMaterial = new THREE.MeshStandardMaterial({ color: 0xe8b08e, roughness: 0.95 });
+    this.lipMaterial = new THREE.MeshStandardMaterial({ color: 0x9d554f, roughness: 0.82 });
+    this.mouthInnerMaterial = new THREE.MeshStandardMaterial({ color: 0x4a2527, roughness: 0.9 });
+    this.nostrilMaterial = new THREE.MeshStandardMaterial({ color: 0x7a4940, roughness: 0.92 });
+    this.blushMaterial = new THREE.MeshStandardMaterial({
+      color: 0xf1a39b,
+      roughness: 0.96,
+      transparent: true,
+      opacity: 0.28,
+      depthWrite: false
+    });
+    this.blinkAmount = 0;
+    this.eyeMotionYaw = 0;
+    this.eyeMotionPitch = 0;
+    this.headShapeSignature = "";
+    this.mouthShapeSignature = "";
+    this.hairSignature = "";
 
     this.group = new THREE.Group();
     this.group.name = "character-root";
@@ -104,7 +163,7 @@ export class CharacterScene {
     this.headPivot.position.y = 1.36;
     this.torsoPivot.add(this.headPivot);
 
-    this.head = createSphere(0.55, this.skinMaterial);
+    this.head = applyShadow(new THREE.Mesh(createHeadGeometry(0.55, 0.84, 0.055, 0.055), this.skinMaterial));
     this.head.scale.set(1.08, 1.0, 1.03);
     this.headPivot.add(this.head);
 
@@ -144,13 +203,21 @@ export class CharacterScene {
     this.rightEyeWhite.scale.set(0.92, 1.08, 0.45);
     this.rightEye.add(this.rightEyeWhite);
 
-    this.leftPupil = createSphere(0.065, this.eyePupilMaterial);
+    this.leftPupil = createFlatCircle(0.065, this.eyePupilMaterial);
     this.leftPupil.position.z = 0.04;
     this.leftEye.add(this.leftPupil);
 
-    this.rightPupil = createSphere(0.065, this.eyePupilMaterial);
+    this.rightPupil = createFlatCircle(0.065, this.eyePupilMaterial);
     this.rightPupil.position.z = 0.04;
     this.rightEye.add(this.rightPupil);
+
+    this.leftPupilCore = createFlatCircle(0.042, this.pupilCoreMaterial);
+    this.leftPupilCore.position.z = 0.065;
+    this.leftEye.add(this.leftPupilCore);
+
+    this.rightPupilCore = createFlatCircle(0.042, this.pupilCoreMaterial);
+    this.rightPupilCore.position.z = 0.065;
+    this.rightEye.add(this.rightPupilCore);
 
     this.leftEyeHighlight = createSphere(0.018, this.eyeWhiteMaterial);
     this.leftEyeHighlight.position.set(0.02, 0.025, 0.075);
@@ -168,14 +235,49 @@ export class CharacterScene {
     this.rightBrow.position.set(0.18, 0.23, 0.45);
     this.headPivot.add(this.rightBrow);
 
+    this.nose = createSphere(0.055, this.noseMaterial);
+    this.nose.position.set(0, -0.055, 0.505);
+    this.nose.scale.set(0.62, 0.78, 0.34);
+    this.headPivot.add(this.nose);
+
+    this.noseBridge = createCapsule(0.035, 0.12, this.noseMaterial);
+    this.headPivot.add(this.noseBridge);
+    this.leftNoseWing = createSphere(0.04, this.noseMaterial);
+    this.rightNoseWing = createSphere(0.04, this.noseMaterial);
+    this.headPivot.add(this.leftNoseWing, this.rightNoseWing);
+    this.leftNostril = createSphere(0.018, this.nostrilMaterial);
+    this.rightNostril = createSphere(0.018, this.nostrilMaterial);
+    this.headPivot.add(this.leftNostril, this.rightNostril);
+
+    this.leftCheek = createSphere(0.055, this.blushMaterial);
+    this.leftCheek.position.set(-0.22, -0.12, 0.49);
+    this.leftCheek.scale.set(1.15, 0.55, 0.12);
+    this.leftCheek.rotation.z = radians(-8);
+    this.headPivot.add(this.leftCheek);
+
+    this.rightCheek = createSphere(0.055, this.blushMaterial);
+    this.rightCheek.position.set(0.22, -0.12, 0.49);
+    this.rightCheek.scale.set(1.15, 0.55, 0.12);
+    this.rightCheek.rotation.z = radians(8);
+    this.headPivot.add(this.rightCheek);
+
     this.mouth = new THREE.Mesh(
       new THREE.TorusGeometry(0.085, 0.012, 8, 28, Math.PI),
-      this.browMaterial
+      this.lipMaterial
     );
     this.mouth.position.set(0, -0.18, 0.48);
     this.mouth.rotation.z = Math.PI;
     this.mouth.scale.set(1.15, 0.42, 1);
     this.headPivot.add(this.mouth);
+
+    this.lowerLip = new THREE.Mesh(
+      new THREE.TorusGeometry(0.085, 0.012, 8, 28, Math.PI),
+      this.lipMaterial
+    );
+    this.headPivot.add(this.lowerLip);
+
+    this.mouthInner = createSphere(0.08, this.mouthInnerMaterial);
+    this.headPivot.add(this.mouthInner);
 
     this.leftArm = this.buildArm(-1);
     this.rightArm = this.buildArm(1);
@@ -258,23 +360,70 @@ export class CharacterScene {
   }
 
   applyEyePupils() {
-    const eyeYaw = THREE.MathUtils.clamp(this.config.eyeYaw, -1, 1);
-    const eyePitch = THREE.MathUtils.clamp(this.config.eyePitch, -1, 1);
+    const eyeYaw = THREE.MathUtils.clamp(this.config.eyeYaw + this.eyeMotionYaw, -1, 1);
+    const eyePitch = THREE.MathUtils.clamp(this.config.eyePitch + this.eyeMotionPitch, -1, 1);
     const offsetX = eyeYaw * 0.035;
     const offsetY = eyePitch * 0.028;
 
-    this.leftPupil.position.x = offsetX + this.config.pupilOffsetX;
-    this.leftPupil.position.y = offsetY + this.config.pupilOffsetY;
-    this.leftPupil.position.z = this.config.pupilOffsetZ;
-    this.rightPupil.position.x = offsetX + this.config.pupilOffsetX;
-    this.rightPupil.position.y = offsetY + this.config.pupilOffsetY;
-    this.rightPupil.position.z = this.config.pupilOffsetZ;
-    this.leftEyeHighlight.position.x = offsetX + this.config.eyeHighlightOffsetX;
-    this.leftEyeHighlight.position.y = offsetY + this.config.eyeHighlightOffsetY;
-    this.leftEyeHighlight.position.z = this.config.eyeHighlightOffsetZ;
-    this.rightEyeHighlight.position.x = offsetX + this.config.eyeHighlightOffsetX;
-    this.rightEyeHighlight.position.y = offsetY + this.config.eyeHighlightOffsetY;
-    this.rightEyeHighlight.position.z = this.config.eyeHighlightOffsetZ;
+    this.leftPupil.position.x = offsetX + this.config.pupilOffsetX + this.config.leftIrisOffsetX;
+    this.leftPupil.position.y = offsetY + this.config.pupilOffsetY + this.config.leftIrisOffsetY;
+    this.leftPupil.position.z = this.config.pupilOffsetZ + this.config.leftIrisOffsetZ
+      + 0.065 * this.config.pupilScale - this.config.irisDepth * 0.5;
+    this.rightPupil.position.x = offsetX + this.config.pupilOffsetX + this.config.rightIrisOffsetX;
+    this.rightPupil.position.y = offsetY + this.config.pupilOffsetY + this.config.rightIrisOffsetY;
+    this.rightPupil.position.z = this.config.pupilOffsetZ + this.config.rightIrisOffsetZ
+      + 0.065 * this.config.pupilScale - this.config.irisDepth * 0.5;
+    this.leftPupilCore.position.x = offsetX + this.config.pupilOffsetX + this.config.leftPupilCoreOffsetX;
+    this.leftPupilCore.position.y = offsetY + this.config.pupilOffsetY + this.config.leftPupilCoreOffsetY;
+    this.leftPupilCore.position.z = this.config.pupilOffsetZ + this.config.pupilCoreDepth + this.config.leftPupilCoreOffsetZ
+      + 0.042 * this.config.pupilCoreScale - this.config.pupilDepth * 0.5;
+    this.rightPupilCore.position.x = offsetX + this.config.pupilOffsetX + this.config.rightPupilCoreOffsetX;
+    this.rightPupilCore.position.y = offsetY + this.config.pupilOffsetY + this.config.rightPupilCoreOffsetY;
+    this.rightPupilCore.position.z = this.config.pupilOffsetZ + this.config.pupilCoreDepth + this.config.rightPupilCoreOffsetZ
+      + 0.042 * this.config.pupilCoreScale - this.config.pupilDepth * 0.5;
+    this.leftEyeHighlight.position.x = offsetX + this.config.eyeHighlightOffsetX + this.config.leftHighlightOffsetX;
+    this.leftEyeHighlight.position.y = offsetY + this.config.eyeHighlightOffsetY + this.config.leftHighlightOffsetY;
+    this.leftEyeHighlight.position.z = this.config.eyeHighlightOffsetZ + this.config.leftHighlightOffsetZ;
+    this.rightEyeHighlight.position.x = offsetX + this.config.eyeHighlightOffsetX + this.config.rightHighlightOffsetX;
+    this.rightEyeHighlight.position.y = offsetY + this.config.eyeHighlightOffsetY + this.config.rightHighlightOffsetY;
+    this.rightEyeHighlight.position.z = this.config.eyeHighlightOffsetZ + this.config.rightHighlightOffsetZ;
+  }
+
+  applyHeadShape() {
+    const signature = [this.config.jawWidth, this.config.chinLength, this.config.cheekFullness].join(":");
+    if (signature === this.headShapeSignature) {
+      return;
+    }
+
+    this.head.geometry.dispose();
+    this.head.geometry = createHeadGeometry(
+      0.55,
+      this.config.jawWidth,
+      this.config.chinLength,
+      this.config.cheekFullness
+    );
+    this.headShapeSignature = signature;
+  }
+
+  applyBlink() {
+    const blink = THREE.MathUtils.clamp(this.blinkAmount, 0, 1);
+    const blinkScaleY = Math.max(0.035, 1 - blink * 0.965);
+    this.leftEyeWhite.scale.y = 1.08 * this.config.eyeScaleY * blinkScaleY;
+    this.rightEyeWhite.scale.y = 1.08 * this.config.eyeScaleY * blinkScaleY;
+    this.leftPupil.scale.z = this.config.pupilScale * blinkScaleY;
+    this.rightPupil.scale.z = this.config.pupilScale * blinkScaleY;
+    this.leftPupilCore.scale.z = this.config.pupilCoreScale * blinkScaleY;
+    this.rightPupilCore.scale.z = this.config.pupilCoreScale * blinkScaleY;
+    this.leftEyeHighlight.scale.y = this.config.eyeHighlightScale * blinkScaleY;
+    this.rightEyeHighlight.scale.y = this.config.eyeHighlightScale * blinkScaleY;
+  }
+
+  setFaceMotion(blink, eyeYaw = 0, eyePitch = 0) {
+    this.blinkAmount = blink;
+    this.eyeMotionYaw = eyeYaw;
+    this.eyeMotionPitch = eyePitch;
+    this.applyEyePupils();
+    this.applyBlink();
   }
 
   createHairStrips(maxCount) {
@@ -312,6 +461,23 @@ export class CharacterScene {
     const sit = THREE.MathUtils.clamp(this.config.sitAmount, 0, 1);
     const bodyScale = 1.5;
 
+    this.skinMaterial.color.set(this.config.skinColor ?? 0xf7cdaa);
+    this.skinMaterial.roughness = this.config.skinRoughness;
+    this.skinMaterial.sheen = this.config.skinSheen;
+    this.skinMaterial.sheenColor.set(this.config.skinSheenColor ?? "#ffd8c2");
+    this.eyeWhiteMaterial.color.set(this.config.eyeWhiteColor ?? "#f4eee7");
+    this.eyeWhiteMaterial.roughness = this.config.eyeWhiteRoughness;
+    this.eyePupilMaterial.color.set(this.config.irisColor ?? "#7b5139");
+    this.eyePupilMaterial.roughness = this.config.irisRoughness;
+    this.pupilCoreMaterial.color.set(this.config.pupilColor ?? "#171312");
+    this.pupilCoreMaterial.roughness = this.config.pupilRoughness;
+    this.browMaterial.color.set(this.config.browColor ?? "#3c2923");
+    this.browMaterial.roughness = this.config.browRoughness;
+    this.lipMaterial.color.set(this.config.lipColor ?? "#9d554f");
+    this.lipMaterial.roughness = this.config.lipRoughness;
+    this.mouthInnerMaterial.color.set(this.config.mouthInnerColor ?? "#4a2527");
+    this.mouthInnerMaterial.roughness = this.config.mouthInnerRoughness;
+    this.nostrilMaterial.color.set(this.config.nostrilColor ?? "#7a4940");
     this.shirtMaterial.color.set(this.config.shirtColor ?? 0x3a4d50);
     this.sleeveMaterial.color.set(this.config.sleeveColor ?? 0x3a4d50);
     this.pelvisMaterial.color.set(this.config.pelvisColor ?? 0x262537);
@@ -356,33 +522,154 @@ export class CharacterScene {
       1.36 * bodyScale + this.config.headOffsetY,
       this.config.headOffsetZ
     );
+    this.applyHeadShape();
     this.head.scale.set(1.08 * this.config.headScaleX, 1.0 * this.config.headScaleY, 1.03 * this.config.headScaleZ);
     this.applyHair();
     this.earLeft.scale.set(this.config.earScaleX, this.config.earScaleY, this.config.earScaleZ);
     this.earRight.scale.set(this.config.earScaleX, this.config.earScaleY, this.config.earScaleZ);
     this.leftEyeWhite.scale.set(0.92 * this.config.eyeScaleX, 1.08 * this.config.eyeScaleY, 0.45 * this.config.eyeScaleZ);
     this.rightEyeWhite.scale.set(0.92 * this.config.eyeScaleX, 1.08 * this.config.eyeScaleY, 0.45 * this.config.eyeScaleZ);
+    this.leftEyeWhite.position.set(
+      this.config.leftEyeWhiteOffsetX,
+      this.config.leftEyeWhiteOffsetY,
+      this.config.leftEyeWhiteOffsetZ
+    );
+    this.rightEyeWhite.position.set(
+      this.config.rightEyeWhiteOffsetX,
+      this.config.rightEyeWhiteOffsetY,
+      this.config.rightEyeWhiteOffsetZ
+    );
     this.leftEyeWhite.rotation.set(radians(this.config.leftEyeWhiteRotX), radians(this.config.leftEyeWhiteRotY), radians(this.config.leftEyeWhiteRotZ));
     this.rightEyeWhite.rotation.set(radians(this.config.rightEyeWhiteRotX), radians(this.config.rightEyeWhiteRotY), radians(this.config.rightEyeWhiteRotZ));
-    this.leftPupil.scale.setScalar(this.config.pupilScale);
-    this.rightPupil.scale.setScalar(this.config.pupilScale);
+    this.leftPupil.quaternion.copy(this.leftEyeWhite.quaternion);
+    this.leftPupil.rotateX(Math.PI / 2);
+    this.rightPupil.quaternion.copy(this.rightEyeWhite.quaternion);
+    this.rightPupil.rotateX(Math.PI / 2);
+    this.leftPupilCore.quaternion.copy(this.leftEyeWhite.quaternion);
+    this.leftPupilCore.rotateX(Math.PI / 2);
+    this.rightPupilCore.quaternion.copy(this.rightEyeWhite.quaternion);
+    this.rightPupilCore.rotateX(Math.PI / 2);
+    this.leftPupil.scale.set(this.config.pupilScale, this.config.irisDepth, this.config.pupilScale);
+    this.rightPupil.scale.set(this.config.pupilScale, this.config.irisDepth, this.config.pupilScale);
+    this.leftPupilCore.scale.set(this.config.pupilCoreScale, this.config.pupilDepth, this.config.pupilCoreScale);
+    this.rightPupilCore.scale.set(this.config.pupilCoreScale, this.config.pupilDepth, this.config.pupilCoreScale);
     this.leftEyeHighlight.scale.setScalar(this.config.eyeHighlightScale);
     this.rightEyeHighlight.scale.setScalar(this.config.eyeHighlightScale);
     this.leftBrow.scale.set(this.config.browScaleX, this.config.browScaleY, this.config.browScaleZ);
     this.rightBrow.scale.set(this.config.browScaleX, this.config.browScaleY, this.config.browScaleZ);
-    this.mouth.geometry.dispose();
-    this.mouth.geometry = new THREE.TorusGeometry(
-      this.config.mouthRadius,
-      this.config.mouthTube,
-      8,
-      28,
-      Math.PI * this.config.mouthArc
+    this.noseMaterial.color.set(this.config.noseColor ?? "#e8b08e");
+    this.noseMaterial.roughness = this.config.noseRoughness;
+    this.nose.position.set(this.config.noseOffsetX, this.config.noseOffsetY, this.config.noseOffsetZ);
+    this.nose.scale.set(this.config.noseScaleX, this.config.noseScaleY, this.config.noseScaleZ);
+    this.noseBridge.position.set(
+      this.config.noseOffsetX + this.config.noseBridgeOffsetX,
+      this.config.noseOffsetY + this.config.noseBridgeOffsetY,
+      this.config.noseOffsetZ + this.config.noseBridgeOffsetZ
     );
+    this.noseBridge.scale.set(
+      this.config.noseBridgeScaleX,
+      this.config.noseBridgeScaleY,
+      this.config.noseBridgeScaleZ
+    );
+    this.leftNoseWing.position.set(
+      this.config.noseOffsetX - this.config.noseWingOffsetX,
+      this.config.noseOffsetY + this.config.noseWingOffsetY,
+      this.config.noseOffsetZ + this.config.noseWingOffsetZ
+    );
+    this.rightNoseWing.position.set(
+      this.config.noseOffsetX + this.config.noseWingOffsetX,
+      this.config.noseOffsetY + this.config.noseWingOffsetY,
+      this.config.noseOffsetZ + this.config.noseWingOffsetZ
+    );
+    this.leftNoseWing.scale.setScalar(this.config.noseWingScale);
+    this.rightNoseWing.scale.setScalar(this.config.noseWingScale);
+    this.leftNostril.position.set(
+      this.config.noseOffsetX - this.config.nostrilOffsetX,
+      this.config.noseOffsetY + this.config.nostrilOffsetY,
+      this.config.noseOffsetZ + this.config.nostrilOffsetZ
+    );
+    this.rightNostril.position.set(
+      this.config.noseOffsetX + this.config.nostrilOffsetX,
+      this.config.noseOffsetY + this.config.nostrilOffsetY,
+      this.config.noseOffsetZ + this.config.nostrilOffsetZ
+    );
+    this.leftNostril.scale.set(this.config.nostrilScaleX, this.config.nostrilScaleY, this.config.nostrilScaleZ);
+    this.rightNostril.scale.set(this.config.nostrilScaleX, this.config.nostrilScaleY, this.config.nostrilScaleZ);
+    this.blushMaterial.color.set(this.config.blushColor ?? "#f1a39b");
+    this.blushMaterial.opacity = this.config.blushOpacity;
+    this.leftCheek.position.set(
+      -0.22 + this.config.blushOffsetX,
+      this.config.blushOffsetY,
+      this.config.blushOffsetZ
+    );
+    this.rightCheek.position.set(
+      0.22 - this.config.blushOffsetX,
+      this.config.blushOffsetY,
+      this.config.blushOffsetZ
+    );
+    this.leftCheek.scale.set(this.config.blushScaleX, this.config.blushScaleY, this.config.blushScaleZ);
+    this.rightCheek.scale.set(this.config.blushScaleX, this.config.blushScaleY, this.config.blushScaleZ);
+    this.leftCheek.rotation.set(
+      radians(this.config.blushRotX),
+      radians(this.config.blushRotY),
+      radians(this.config.blushRotZ)
+    );
+    this.rightCheek.rotation.set(
+      radians(this.config.blushRotX),
+      radians(-this.config.blushRotY),
+      radians(-this.config.blushRotZ)
+    );
+    const mouthSignature = [this.config.mouthRadius, this.config.mouthTube, this.config.mouthArc, this.config.lowerLipThickness].join(":");
+    if (mouthSignature !== this.mouthShapeSignature) {
+      this.mouth.geometry.dispose();
+      this.lowerLip.geometry.dispose();
+      this.mouth.geometry = new THREE.TorusGeometry(
+        this.config.mouthRadius,
+        this.config.mouthTube,
+        8,
+        28,
+        Math.PI * this.config.mouthArc
+      );
+      this.lowerLip.geometry = new THREE.TorusGeometry(
+        this.config.mouthRadius,
+        this.config.lowerLipThickness,
+        8,
+        28,
+        Math.PI * this.config.mouthArc
+      );
+      this.mouthShapeSignature = mouthSignature;
+    }
     this.mouth.position.set(this.config.mouthOffsetX, this.config.mouthOffsetY, this.config.mouthOffsetZ);
     this.mouth.rotation.x = radians(this.config.mouthRotX);
     this.mouth.rotation.y = radians(this.config.mouthRotY);
     this.mouth.rotation.z = radians(this.config.mouthRotZ);
     this.mouth.scale.set(this.config.mouthScaleX, this.config.mouthScaleY, this.config.mouthScaleZ);
+    this.lowerLip.position.set(
+      this.config.mouthOffsetX,
+      this.config.mouthOffsetY - this.config.mouthOpen,
+      this.config.mouthOffsetZ
+    );
+    this.lowerLip.rotation.set(
+      radians(this.config.mouthRotX),
+      radians(this.config.mouthRotY),
+      radians(this.config.mouthRotZ + 180)
+    );
+    this.lowerLip.scale.set(
+      this.config.mouthScaleX * this.config.lowerLipScale,
+      this.config.mouthScaleY,
+      this.config.mouthScaleZ
+    );
+    this.mouthInner.visible = this.config.mouthOpen > 0.002;
+    this.mouthInner.position.set(
+      this.config.mouthOffsetX,
+      this.config.mouthOffsetY - this.config.mouthOpen * 0.5,
+      this.config.mouthOffsetZ - 0.01
+    );
+    this.mouthInner.scale.set(
+      this.config.mouthRadius * this.config.mouthScaleX * 8,
+      this.config.mouthOpen * 3.5,
+      0.08
+    );
 
     this.earLeft.position.set(
       -0.5 + this.config.leftEarOffsetX,
@@ -545,6 +832,7 @@ export class CharacterScene {
     this.rightLeg.ankle.rotation.z = radians(this.config.rightAnkleZ);
 
     this.applyEyePupils();
+    this.applyBlink();
   }
 
   applySleeve(sleeve) {
@@ -556,6 +844,21 @@ export class CharacterScene {
   }
 
   applyHair() {
+    const hairKeys = [
+      "hairColor", "hairParticleSize", "hairCount", "hairParticleOpacity", "hairScatter",
+      "hairCurveX", "hairCurveTipX", "hairCurveZ", "hairFlow", "hairLengthVariation",
+      "hairOffsetX", "hairOffsetY", "hairOffsetZ", "hairRotX", "hairRotY", "hairRotZ",
+      "hairScaleX", "hairScaleY", "hairScaleZ", "hairBaseOffsetX", "hairBaseOffsetY",
+      "hairBaseOffsetZ", "hairBaseRotX", "hairBaseRotY", "hairBaseRotZ", "hairBaseScaleX",
+      "hairBaseScaleY", "hairBaseScaleZ", "fringeCount", "fringeParticleSize",
+      "fringeParticleOpacity", "fringeFlow", "fringeOffsetX", "fringeOffsetY", "fringeOffsetZ",
+      "fringeRotX", "fringeRotY", "fringeRotZ", "fringeScaleX", "fringeScaleY", "fringeScaleZ"
+    ];
+    const signature = hairKeys.map((key) => this.config[key]).join(":");
+    if (signature === this.hairSignature) {
+      return;
+    }
+
     this.hairGroup.position.set(0, 0, 0);
     this.hairGroup.rotation.set(0, 0, 0);
     this.hairGroup.scale.set(1, 1, 1);
@@ -597,6 +900,7 @@ export class CharacterScene {
       return [x, y, z];
     });
 
+    this.hairSignature = signature;
   }
 
   updateHairCloud(strips, prefix, getPoint) {
@@ -609,9 +913,13 @@ export class CharacterScene {
 
     for (let index = 0; index < count; index += 1) {
       const [x, y, z] = getPoint(index);
-      const lean = (seededRandom(index, 44) - 0.5) * 0.9;
-      const twist = (seededRandom(index, 45) - 0.5) * Math.PI;
-      const length = particleSize * (0.85 + seededRandom(index, 46) * 0.55);
+      const flow = prefix === "hair" ? this.config.hairFlow : this.config.fringeFlow;
+      const variation = this.config.hairLengthVariation;
+      const lean = (seededRandom(index, 44) - 0.5) * 0.9 * (1 - flow * 0.75);
+      const randomTwist = (seededRandom(index, 45) - 0.5) * Math.PI;
+      const naturalTwist = Math.atan2(x, z);
+      const twist = THREE.MathUtils.lerp(randomTwist, naturalTwist, flow);
+      const length = particleSize * (1 - variation * 0.5 + seededRandom(index, 46) * variation);
       const width = particleSize * (0.16 + seededRandom(index, 47) * 0.08);
 
       object.position.set(x, y, z);

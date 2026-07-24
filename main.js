@@ -174,7 +174,7 @@ idleCharacterBaseState.headYaw = 32;
 const leftMonitorIdleBaseState = cloneConfig(monitorTwoConfig);
 const rightMonitorIdleBaseState = cloneConfig(monitorOneConfig);
 const cameraIntroStartState = cloneConfig(cameraConfig);
-const cameraIntroTargetState = {
+const cameraIntroDesktopTargetState = {
   ...cameraIntroStartState,
   x: 15.6,
   y: 1.2,
@@ -185,8 +185,16 @@ const cameraIntroTargetState = {
   panX: -8.63,
   fov: 28
 };
+const cameraIntroMobileTargetState = {
+  ...cameraIntroDesktopTargetState,
+  panX: -7.26,
+  fov: 39
+};
 const cameraIntroDelay = 300;
-const cameraIntroDuration = 2600;
+const cameraIntroDuration = 4600;
+const cameraIntroGreetingLead = 2000;
+const cameraIntroHeadTurnDuration = 600;
+const cameraIntroHeadYawTarget = -68;
 let cameraIntroStartTime = null;
 let cameraIntroDone = false;
 let introGreetingStarted = false;
@@ -198,6 +206,8 @@ let earlyLeftMonitorShown = false;
 let earlyPhoneRingShown = false;
 const pointerParallaxTarget = { x: 0, y: 0 };
 const pointerParallaxState = { x: 0, y: 0 };
+let animationPausedAt = atmosphereState.orbitControlsEnabled ? performance.now() : null;
+let totalAnimationPauseTime = 0;
 const raycaster = new THREE.Raycaster();
 const clickPointer = new THREE.Vector2();
 const lampLightingTarget = {
@@ -215,6 +225,40 @@ let lampMonitorBase = null;
 let lampLightingAnimation = null;
 let lampLightingEnabled = false;
 
+function getCameraIntroTargetState() {
+  return window.matchMedia("(max-width: 959px)").matches
+    ? cameraIntroMobileTargetState
+    : cameraIntroDesktopTargetState;
+}
+
+function resetPointerParallax() {
+  pointerParallaxTarget.x = 0;
+  pointerParallaxTarget.y = 0;
+  pointerParallaxState.x = 0;
+  pointerParallaxState.y = 0;
+  cameraRig.setParallax(0, 0, 0, 0);
+}
+
+function setOrbitControlsEnabled(enabled) {
+  const now = performance.now();
+  if (enabled && animationPausedAt === null) {
+    animationPausedAt = now;
+    saccadeYaw = 0;
+    saccadePitch = 0;
+    saccadeTargetYaw = 0;
+    saccadeTargetPitch = 0;
+    character.setFaceMotion(character.blinkAmount, 0, 0);
+  } else if (!enabled && animationPausedAt !== null) {
+    totalAnimationPauseTime += now - animationPausedAt;
+    animationPausedAt = null;
+  }
+
+  atmosphereState.orbitControlsEnabled = enabled;
+  resetPointerParallax();
+  cameraRig.apply();
+  cameraRig.setOrbitEnabled(enabled);
+}
+
 const controlPanel = createControlPanel("Board Controls");
 document.body.appendChild(controlPanel);
 
@@ -230,8 +274,7 @@ createToggleRow(allGuiFolder, "Fog", atmosphereState.fogEnabled, (next) => {
   scene.fog = next ? new THREE.Fog(0xfbf4e8, 14, 28) : null;
 });
 createToggleRow(allGuiFolder, "Orbit Controls", atmosphereState.orbitControlsEnabled, (next) => {
-  atmosphereState.orbitControlsEnabled = next;
-  cameraRig.setOrbitEnabled(next);
+  setOrbitControlsEnabled(next);
 });
 createNumberRow(allGuiFolder, "Music Pulse Speed", 0.25, 8, 0.05, atmosphereState.musicPulseSpeed, (next) => {
   atmosphereState.musicPulseSpeed = next;
@@ -334,6 +377,13 @@ actionStack.appendChild(mouseFourButton);
 
 let characterAnimation = null;
 let phoneRingAnimation = null;
+let blinkStartTime = null;
+let nextBlinkTime = 0;
+let nextSaccadeTime = 0;
+let saccadeYaw = 0;
+let saccadePitch = 0;
+let saccadeTargetYaw = 0;
+let saccadeTargetPitch = 0;
 let idleEnabled = false;
 let idleMode = null;
 let pendingIdleMode = null;
@@ -594,7 +644,9 @@ function updateCameraIntro(time) {
   }
 
   const t = Math.min(1, elapsed / cameraIntroDuration);
-  const eased = easeInOutCubic(t);
+  const eased = easeOutCubic(t);
+  const cameraIntroTargetState = getCameraIntroTargetState();
+
   Object.keys(cameraIntroTargetState).forEach((key) => {
     const start = cameraIntroStartState[key];
     const target = cameraIntroTargetState[key];
@@ -603,6 +655,13 @@ function updateCameraIntro(time) {
       : target;
   });
   cameraRig.apply();
+
+  if (!introGreetingStarted) {
+    const headTurnStart = Math.max(0, cameraIntroDuration - cameraIntroGreetingLead - cameraIntroHeadTurnDuration);
+    const headTurnT = Math.min(1, Math.max(0, elapsed - headTurnStart) / cameraIntroHeadTurnDuration);
+    characterState.headYaw = lerp(characterDefaultPose.headYaw, cameraIntroHeadYawTarget, easeOutCubic(headTurnT));
+    character.apply();
+  }
 
   if (t >= 1) {
     Object.assign(cameraState, cameraIntroTargetState);
@@ -665,7 +724,12 @@ function startAmbientInterrupt(time) {
 }
 
 function updateSceneAutoplay(time) {
-  if (cameraIntroDone && !introGreetingStarted) {
+  const introElapsed = cameraIntroStartTime === null
+    ? -Infinity
+    : time - cameraIntroStartTime - cameraIntroDelay;
+  const shouldStartGreeting = cameraIntroDone || introElapsed >= Math.max(0, cameraIntroDuration - cameraIntroGreetingLead);
+
+  if (shouldStartGreeting && !introGreetingStarted) {
     introGreetingStarted = true;
     beginCharacterGreeting();
     return;
@@ -686,6 +750,10 @@ function updateSceneAutoplay(time) {
 }
 
 function updatePointerParallax() {
+  if (atmosphereState.orbitControlsEnabled) {
+    return;
+  }
+
   pointerParallaxState.x += (pointerParallaxTarget.x - pointerParallaxState.x) * cameraState.mouseSmooth;
   pointerParallaxState.y += (pointerParallaxTarget.y - pointerParallaxState.y) * cameraState.mouseSmooth;
   const parallaxX = pointerParallaxState.x * cameraState.mouseXAmount;
@@ -1724,6 +1792,10 @@ stopButton.addEventListener("click", stopAllAnimations);
 updateActionButtons();
 
 window.addEventListener("pointermove", (event) => {
+  if (atmosphereState.orbitControlsEnabled) {
+    return;
+  }
+
   pointerParallaxTarget.x = -(event.clientX / window.innerWidth - 0.5) * 2;
   pointerParallaxTarget.y = -(event.clientY / window.innerHeight - 0.5) * 2;
 });
@@ -1752,23 +1824,77 @@ function updateMusicHeadPulse(time) {
   character.apply();
 }
 
-function animate(time) {
-  const pulseTime = time * atmosphereState.musicPulseSpeed;
-  speaker.setConePulse(1 + Math.sin(pulseTime * 0.0048) * 0.045 + Math.sin(pulseTime * 0.013) * 0.018);
-  mug.updateSteam(time);
-  updatePoseAnimations(time);
-  if (idleEnabled && !characterAnimation) {
-    queueNextIdleMovement(time);
+function randomTimeBetween(time, min, max) {
+  const lower = Math.min(min, max);
+  const upper = Math.max(min, max);
+  return time + lower + Math.random() * (upper - lower);
+}
+
+function updateFaceMotion(time, allowEyeMotion = true) {
+  let blink = 0;
+
+  if (characterState.blinkEnabled) {
+    if (nextBlinkTime === 0) {
+      nextBlinkTime = randomTimeBetween(time, characterState.blinkIntervalMin, characterState.blinkIntervalMax);
+    }
+    if (blinkStartTime === null && time >= nextBlinkTime) {
+      blinkStartTime = time;
+    }
+    if (blinkStartTime !== null) {
+      const progress = Math.min(1, (time - blinkStartTime) / Math.max(1, characterState.blinkDuration));
+      blink = Math.sin(progress * Math.PI);
+      if (progress >= 1) {
+        blinkStartTime = null;
+        nextBlinkTime = randomTimeBetween(time, characterState.blinkIntervalMin, characterState.blinkIntervalMax);
+      }
+    }
+  } else {
+    blinkStartTime = null;
+    nextBlinkTime = 0;
   }
-  updateIdleMonitor(time);
-  updateRightMonitorIdle(time);
-  updateCharacterAnimation(time);
-  updateMusicHeadPulse(time);
-  updatePhoneRing(time);
-  updateLampLighting(time);
-  updateCameraIntro(time);
-  updateSceneAutoplay(time);
-  updatePointerParallax();
+
+  if (allowEyeMotion && characterState.saccadeEnabled) {
+    if (nextSaccadeTime === 0 || time >= nextSaccadeTime) {
+      saccadeTargetYaw = (Math.random() * 2 - 1) * characterState.saccadeAmount;
+      saccadeTargetPitch = (Math.random() * 2 - 1) * characterState.saccadeAmount * 0.65;
+      nextSaccadeTime = randomTimeBetween(time, characterState.saccadeIntervalMin, characterState.saccadeIntervalMax);
+    }
+  } else {
+    saccadeTargetYaw = 0;
+    saccadeTargetPitch = 0;
+    nextSaccadeTime = 0;
+  }
+
+  const smooth = THREE.MathUtils.clamp(characterState.saccadeSmooth, 0.01, 1);
+  saccadeYaw += (saccadeTargetYaw - saccadeYaw) * smooth;
+  saccadePitch += (saccadeTargetPitch - saccadePitch) * smooth;
+  character.setFaceMotion(blink, saccadeYaw, saccadePitch);
+}
+
+function animate(time) {
+  const animationTime = (animationPausedAt ?? time) - totalAnimationPauseTime;
+
+  if (!atmosphereState.orbitControlsEnabled) {
+    const pulseTime = animationTime * atmosphereState.musicPulseSpeed;
+    speaker.setConePulse(1 + Math.sin(pulseTime * 0.0048) * 0.045 + Math.sin(pulseTime * 0.013) * 0.018);
+    mug.updateSteam(animationTime);
+    updatePoseAnimations(animationTime);
+    if (idleEnabled && !characterAnimation) {
+      queueNextIdleMovement(animationTime);
+    }
+    updateIdleMonitor(animationTime);
+    updateRightMonitorIdle(animationTime);
+    updateCharacterAnimation(animationTime);
+    updateMusicHeadPulse(animationTime);
+    updatePhoneRing(animationTime);
+    updateLampLighting(animationTime);
+    updateCameraIntro(animationTime);
+    updateSceneAutoplay(animationTime);
+    updatePointerParallax();
+  }
+
+  updateFaceMotion(time, !atmosphereState.orbitControlsEnabled);
+
   cameraRig.controls.update();
   renderer.render(scene, cameraRig.camera);
 }

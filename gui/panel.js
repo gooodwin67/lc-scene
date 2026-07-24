@@ -1555,6 +1555,8 @@ export function createCharacterHairControls(panel, config, applyCharacterTransfo
         ["hairParticleSize", 0.04, 0.6, 0.002],
         ["hairParticleOpacity", 0, 1, 0.01],
         ["hairScatter", 0, 0.2, 0.001],
+        ["hairFlow", 0, 1, 0.01],
+        ["hairLengthVariation", 0, 1, 0.01],
         ["hairCurveX", -0.1, 0.1, 0.001],
         ["hairCurveTipX", -0.1, 0.1, 0.001],
         ["hairCurveZ", -0.1, 0.1, 0.001]
@@ -1575,7 +1577,8 @@ export function createCharacterHairControls(panel, config, applyCharacterTransfo
         ["fringeScaleZ", 0.2, 3, 0.01],
         ["fringeCount", 0, 360, 1],
         ["fringeParticleSize", 0.2, 3, 0.01],
-        ["fringeParticleOpacity", 0, 1, 0.01]
+        ["fringeParticleOpacity", 0, 1, 0.01],
+        ["fringeFlow", 0, 1, 0.01]
       ]
     }
   ];
@@ -1611,6 +1614,100 @@ export function createCharacterFaceControls(panel, config, applyCharacterTransfo
   const body = createGroup(panel, "Face", collapsed);
   const sections = [
     {
+      title: "Skin & Head Shape",
+      fields: [
+        ["jawWidth", 0.55, 1.2, 0.01],
+        ["chinLength", 0, 0.2, 0.005],
+        ["cheekFullness", -0.1, 0.25, 0.005],
+        ["skinRoughness", 0.2, 1, 0.01],
+        ["skinSheen", 0, 1, 0.01]
+      ],
+      colors: ["skinColor", "skinSheenColor"]
+    },
+    {
+      title: "Expression",
+      fields: [
+        ["eyeYaw", -1, 1, 0.01],
+        ["eyePitch", -1, 1, 0.01],
+        ["browTilt", -30, 30, 0.5]
+      ]
+    },
+    {
+      title: "Face Motion",
+      toggles: ["blinkEnabled", "saccadeEnabled"],
+      fields: [
+        ["blinkIntervalMin", 200, 10000, 50],
+        ["blinkIntervalMax", 200, 15000, 50],
+        ["blinkDuration", 50, 1000, 10],
+        ["saccadeIntervalMin", 100, 5000, 50],
+        ["saccadeIntervalMax", 200, 8000, 50],
+        ["saccadeAmount", 0, 0.5, 0.01],
+        ["saccadeSmooth", 0.01, 0.5, 0.01]
+      ]
+    },
+    {
+      title: "Eye Shape",
+      fields: [
+        ["eyeScaleX", 0.2, 3, 0.01],
+        ["eyeScaleY", 0.2, 3, 0.01],
+        ["eyeScaleZ", 0.2, 3, 0.01],
+        ["pupilScale", 0.2, 3, 0.01],
+        ["pupilCoreScale", 0.1, 2, 0.01],
+        ["pupilCoreDepth", 0, 0.1, 0.002],
+        ["irisDepth", 0.001, 0.08, 0.001],
+        ["pupilDepth", 0.001, 0.08, 0.001],
+        ["eyeWhiteRoughness", 0.1, 1, 0.01],
+        ["irisRoughness", 0.1, 1, 0.01],
+        ["pupilRoughness", 0.1, 1, 0.01]
+      ],
+      colors: ["eyeWhiteColor", "irisColor", "pupilColor"]
+    },
+    {
+      title: "Eye Placement",
+      fields: [
+        ["leftEyeOffsetX", -2, 2, 0.01],
+        ["leftEyeOffsetY", -2, 2, 0.01],
+        ["leftEyeOffsetZ", -2, 2, 0.01],
+        ["rightEyeOffsetX", -2, 2, 0.01],
+        ["rightEyeOffsetY", -2, 2, 0.01],
+        ["rightEyeOffsetZ", -2, 2, 0.01]
+      ]
+    },
+    {
+      title: "Left Eye Parts",
+      fields: [
+        ["leftEyeWhiteOffsetX", -0.3, 0.3, 0.002],
+        ["leftEyeWhiteOffsetY", -0.3, 0.3, 0.002],
+        ["leftEyeWhiteOffsetZ", -0.3, 0.3, 0.002],
+        ["leftIrisOffsetX", -0.3, 0.3, 0.002],
+        ["leftIrisOffsetY", -0.3, 0.3, 0.002],
+        ["leftIrisOffsetZ", -0.3, 0.3, 0.002],
+        ["leftPupilCoreOffsetX", -0.3, 0.3, 0.002],
+        ["leftPupilCoreOffsetY", -0.3, 0.3, 0.002],
+        ["leftPupilCoreOffsetZ", -0.3, 0.3, 0.002],
+        ["leftHighlightOffsetX", -0.3, 0.3, 0.002],
+        ["leftHighlightOffsetY", -0.3, 0.3, 0.002],
+        ["leftHighlightOffsetZ", -0.3, 0.3, 0.002]
+      ]
+    },
+    {
+      title: "Right Eye Parts",
+      fields: [
+        ["rightEyeWhiteOffsetX", -0.3, 0.3, 0.002],
+        ["rightEyeWhiteOffsetY", -0.3, 0.3, 0.002],
+        ["rightEyeWhiteOffsetZ", -0.3, 0.3, 0.002],
+        ["rightIrisOffsetX", -0.3, 0.3, 0.002],
+        ["rightIrisOffsetY", -0.3, 0.3, 0.002],
+        ["rightIrisOffsetZ", -0.3, 0.3, 0.002],
+        ["rightPupilCoreOffsetX", -0.3, 0.3, 0.002],
+        ["rightPupilCoreOffsetY", -0.3, 0.3, 0.002],
+        ["rightPupilCoreOffsetZ", -0.3, 0.3, 0.002],
+        ["rightHighlightOffsetX", -0.3, 0.3, 0.002],
+        ["rightHighlightOffsetY", -0.3, 0.3, 0.002],
+        ["rightHighlightOffsetZ", -0.3, 0.3, 0.002]
+      ]
+    },
+    {
       title: "Pupils",
       fields: [
         ["pupilOffsetX", -0.2, 0.2, 0.005],
@@ -1644,6 +1741,67 @@ export function createCharacterFaceControls(panel, config, applyCharacterTransfo
       ]
     },
     {
+      title: "Brows",
+      fields: [
+        ["browScaleX", 0.2, 3, 0.01],
+        ["browScaleY", 0.2, 3, 0.01],
+        ["browScaleZ", 0.2, 3, 0.01],
+        ["browRoughness", 0.1, 1, 0.01],
+        ["leftBrowOffsetX", -2, 2, 0.01],
+        ["leftBrowOffsetY", -2, 2, 0.01],
+        ["leftBrowOffsetZ", -2, 2, 0.01],
+        ["rightBrowOffsetX", -2, 2, 0.01],
+        ["rightBrowOffsetY", -2, 2, 0.01],
+        ["rightBrowOffsetZ", -2, 2, 0.01]
+      ],
+      colors: ["browColor"]
+    },
+    {
+      title: "Nose",
+      fields: [
+        ["noseOffsetX", -0.5, 0.5, 0.005],
+        ["noseOffsetY", -0.5, 0.5, 0.005],
+        ["noseOffsetZ", 0, 0.8, 0.005],
+        ["noseScaleX", 0, 3, 0.01],
+        ["noseScaleY", 0, 3, 0.01],
+        ["noseScaleZ", 0, 3, 0.01],
+        ["noseBridgeOffsetX", -0.3, 0.3, 0.005],
+        ["noseBridgeOffsetY", -0.3, 0.3, 0.005],
+        ["noseBridgeOffsetZ", -0.3, 0.3, 0.005],
+        ["noseBridgeScaleX", 0, 3, 0.01],
+        ["noseBridgeScaleY", 0, 3, 0.01],
+        ["noseBridgeScaleZ", 0, 3, 0.01],
+        ["noseWingOffsetX", 0, 0.2, 0.002],
+        ["noseWingOffsetY", -0.2, 0.2, 0.002],
+        ["noseWingOffsetZ", -0.2, 0.2, 0.002],
+        ["noseWingScale", 0, 2, 0.01],
+        ["noseRoughness", 0.1, 1, 0.01],
+        ["nostrilOffsetX", 0, 0.15, 0.002],
+        ["nostrilOffsetY", -0.15, 0.15, 0.002],
+        ["nostrilOffsetZ", -0.15, 0.15, 0.002],
+        ["nostrilScaleX", 0, 2, 0.01],
+        ["nostrilScaleY", 0, 2, 0.01],
+        ["nostrilScaleZ", 0, 2, 0.01]
+      ],
+      colors: ["noseColor", "nostrilColor"]
+    },
+    {
+      title: "Cheeks",
+      fields: [
+        ["blushOpacity", 0, 1, 0.01],
+        ["blushOffsetX", -0.5, 0.5, 0.005],
+        ["blushOffsetY", -0.5, 0.5, 0.005],
+        ["blushOffsetZ", 0, 0.8, 0.005],
+        ["blushScaleX", 0, 3, 0.01],
+        ["blushScaleY", 0, 3, 0.01],
+        ["blushScaleZ", 0, 3, 0.01],
+        ["blushRotX", -180, 180, 0.5],
+        ["blushRotY", -180, 180, 0.5],
+        ["blushRotZ", -180, 180, 0.5]
+      ],
+      colors: ["blushColor"]
+    },
+    {
       title: "Mouth",
       fields: [
         ["mouthOffsetX", -0.5, 0.5, 0.005],
@@ -1657,21 +1815,43 @@ export function createCharacterFaceControls(panel, config, applyCharacterTransfo
         ["mouthScaleZ", 0.05, 3, 0.01],
         ["mouthRadius", 0.01, 0.3, 0.005],
         ["mouthTube", 0.002, 0.06, 0.002],
-        ["mouthArc", 0.1, 2, 0.01]
-      ]
+        ["mouthArc", 0.1, 2, 0.01],
+        ["mouthOpen", 0, 0.15, 0.002],
+        ["lowerLipThickness", 0.002, 0.06, 0.002],
+        ["lowerLipScale", 0.2, 2, 0.01],
+        ["lipRoughness", 0.1, 1, 0.01],
+        ["mouthInnerRoughness", 0.1, 1, 0.01]
+      ],
+      colors: ["lipColor", "mouthInnerColor"]
     }
   ];
 
-  sections.forEach(({ title, fields }) => {
+  sections.forEach(({ title, fields = [], colors, toggles }) => {
     const heading = document.createElement("h3");
     heading.textContent = title;
     heading.style.margin = "10px 0 8px";
     heading.style.fontSize = "13px";
     body.appendChild(heading);
 
+    (toggles ?? []).forEach((key) => {
+      createToggleRow(body, key, config[key], (next) => {
+        config[key] = next;
+        applyCharacterTransform();
+      });
+    });
+
     fields.forEach(([key, min, max, step]) => {
       body.appendChild(
         createSliderRow(key, min, max, step, config[key], (next) => {
+          config[key] = next;
+          applyCharacterTransform();
+        })
+      );
+    });
+
+    (colors ?? []).forEach((key) => {
+      body.appendChild(
+        createColorRow(key, config[key], (next) => {
           config[key] = next;
           applyCharacterTransform();
         })
