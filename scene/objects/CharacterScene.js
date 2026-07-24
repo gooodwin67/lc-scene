@@ -121,7 +121,7 @@ export class CharacterScene {
     this.pupilCoreMaterial = new THREE.MeshStandardMaterial({ color: 0x171312, roughness: 0.68 });
     this.browMaterial = new THREE.MeshStandardMaterial({ color: 0x5a3428, roughness: 0.9 });
     this.noseMaterial = new THREE.MeshStandardMaterial({ color: 0xe8b08e, roughness: 0.95 });
-    this.lipMaterial = new THREE.MeshStandardMaterial({ color: 0x9d554f, roughness: 0.82 });
+    this.mouthMaterial = new THREE.MeshStandardMaterial({ color: 0x5a3428, roughness: 0.9 });
     this.mouthInnerMaterial = new THREE.MeshStandardMaterial({ color: 0x4a2527, roughness: 0.9 });
     this.nostrilMaterial = new THREE.MeshStandardMaterial({ color: 0x7a4940, roughness: 0.92 });
     this.blushMaterial = new THREE.MeshStandardMaterial({
@@ -263,18 +263,12 @@ export class CharacterScene {
 
     this.mouth = new THREE.Mesh(
       new THREE.TorusGeometry(0.085, 0.012, 8, 28, Math.PI),
-      this.lipMaterial
+      this.mouthMaterial
     );
     this.mouth.position.set(0, -0.18, 0.48);
     this.mouth.rotation.z = Math.PI;
     this.mouth.scale.set(1.15, 0.42, 1);
     this.headPivot.add(this.mouth);
-
-    this.lowerLip = new THREE.Mesh(
-      new THREE.TorusGeometry(0.085, 0.012, 8, 28, Math.PI),
-      this.lipMaterial
-    );
-    this.headPivot.add(this.lowerLip);
 
     this.mouthInner = createSphere(0.08, this.mouthInnerMaterial);
     this.headPivot.add(this.mouthInner);
@@ -473,8 +467,8 @@ export class CharacterScene {
     this.pupilCoreMaterial.roughness = this.config.pupilRoughness;
     this.browMaterial.color.set(this.config.browColor ?? "#3c2923");
     this.browMaterial.roughness = this.config.browRoughness;
-    this.lipMaterial.color.set(this.config.lipColor ?? "#9d554f");
-    this.lipMaterial.roughness = this.config.lipRoughness;
+    this.mouthMaterial.color.set(this.config.mouthColor ?? "#5a3428");
+    this.mouthMaterial.roughness = this.config.mouthRoughness;
     this.mouthInnerMaterial.color.set(this.config.mouthInnerColor ?? "#4a2527");
     this.mouthInnerMaterial.roughness = this.config.mouthInnerRoughness;
     this.nostrilMaterial.color.set(this.config.nostrilColor ?? "#7a4940");
@@ -619,20 +613,12 @@ export class CharacterScene {
       radians(-this.config.blushRotY),
       radians(-this.config.blushRotZ)
     );
-    const mouthSignature = [this.config.mouthRadius, this.config.mouthTube, this.config.mouthArc, this.config.lowerLipThickness].join(":");
+    const mouthSignature = [this.config.mouthRadius, this.config.mouthTube, this.config.mouthArc].join(":");
     if (mouthSignature !== this.mouthShapeSignature) {
       this.mouth.geometry.dispose();
-      this.lowerLip.geometry.dispose();
       this.mouth.geometry = new THREE.TorusGeometry(
         this.config.mouthRadius,
         this.config.mouthTube,
-        8,
-        28,
-        Math.PI * this.config.mouthArc
-      );
-      this.lowerLip.geometry = new THREE.TorusGeometry(
-        this.config.mouthRadius,
-        this.config.lowerLipThickness,
         8,
         28,
         Math.PI * this.config.mouthArc
@@ -644,21 +630,6 @@ export class CharacterScene {
     this.mouth.rotation.y = radians(this.config.mouthRotY);
     this.mouth.rotation.z = radians(this.config.mouthRotZ);
     this.mouth.scale.set(this.config.mouthScaleX, this.config.mouthScaleY, this.config.mouthScaleZ);
-    this.lowerLip.position.set(
-      this.config.mouthOffsetX,
-      this.config.mouthOffsetY - this.config.mouthOpen,
-      this.config.mouthOffsetZ
-    );
-    this.lowerLip.rotation.set(
-      radians(this.config.mouthRotX),
-      radians(this.config.mouthRotY),
-      radians(this.config.mouthRotZ + 180)
-    );
-    this.lowerLip.scale.set(
-      this.config.mouthScaleX * this.config.lowerLipScale,
-      this.config.mouthScaleY,
-      this.config.mouthScaleZ
-    );
     this.mouthInner.visible = this.config.mouthOpen > 0.002;
     this.mouthInner.position.set(
       this.config.mouthOffsetX,

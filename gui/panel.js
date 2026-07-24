@@ -1817,12 +1817,10 @@ export function createCharacterFaceControls(panel, config, applyCharacterTransfo
         ["mouthTube", 0.002, 0.06, 0.002],
         ["mouthArc", 0.1, 2, 0.01],
         ["mouthOpen", 0, 0.15, 0.002],
-        ["lowerLipThickness", 0.002, 0.06, 0.002],
-        ["lowerLipScale", 0.2, 2, 0.01],
-        ["lipRoughness", 0.1, 1, 0.01],
+        ["mouthRoughness", 0.1, 1, 0.01],
         ["mouthInnerRoughness", 0.1, 1, 0.01]
       ],
-      colors: ["lipColor", "mouthInnerColor"]
+      colors: ["mouthColor", "mouthInnerColor"]
     }
   ];
 
